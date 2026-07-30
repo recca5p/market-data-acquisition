@@ -58,6 +58,12 @@ Collect tick size, quantity step, minimum quantity, contract multiplier or value
 
 From a ticket screenshot, capture only fields that are visibly stated: supported Market/Stop-Limit tabs, order type, bid/sell and ask/buy prices, selected quantity, contract value, displayed margin, spread, fees, pip/point value, swap, and whether stop-loss/take-profit inputs exist. Do not infer hidden account equity, available risk, tick size, or quantity step.
 
+For a `HYBRID_M5` refresh, also capture the visible chart timeframe, current
+quote receipt time, latest completed M5 bar open/close time and OHLC, current
+in-progress bar state, and countdown when shown. Do not infer a completed bar
+from candle color or screen position; if completion time is not defensible,
+mark the trigger incomplete.
+
 From an account/positions screenshot, also capture visibly stated account
 equity or trading value, available funds, margin used, margin ratio, open
 positions, pending orders, entry, current mark, stop, target, and displayed
@@ -100,6 +106,7 @@ Return:
 2. `Identity and timing:` masked account, paper/live environment, instrument, snapshot ID, provider time, ICT time, and latency.
 3. `Account state:` balances, margin, P&L, positions, and working orders.
 4. `Market, instrument, and ticket state:` quote, session, visible ticket fields, permissions, specifications, and short/derivative details.
+   Include visible completed-M5 trigger data when `HYBRID_M5` is requested.
 5. `Validation:` missing, stale, contradictory, unsupported, and reconciliation flags.
 6. `Readiness:` optional manual-sizing readiness, session scope, expiry, and
    invalidation conditions.

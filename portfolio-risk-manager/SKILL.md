@@ -24,6 +24,8 @@ Require for public-reference risk geometry:
 - supported asset class with a non-crypto primary underlying/reference;
 - `LONG` or `SHORT`, entry trigger/zone, finite stop-loss, invalidation, target/exit, expiry, and instrument basis;
 - public reference price, timestamp, delay, and cost assumptions.
+- `entry_timing_mode`, strategy validation status, and the active timing
+  profile's spread-to-stop, total-cost-R, and research-risk limits.
 
 Treat as optional unless the account-risk profile is being used:
 
@@ -33,6 +35,10 @@ Treat as optional unless the account-risk profile is being used:
 - platform bid/ask, displayed quantity, pip/point value, fees, swap, and ticket type captured from a user screenshot.
 
 Missing optional inputs must not block the directional plan. Instead return `PLAN_PARTIAL`, leave quantity/account loss null, and list what the user must verify.
+
+Spread, round-trip fees, slippage, and financing/borrow buffers are
+decision-critical for `HYBRID_M5`, not optional zeros. If any is missing,
+return `PLAN_PARTIAL` and do not calculate quantity or net reward-to-risk.
 
 Treat the USD 2,000 balance as planned until current XTB text, screenshot, or
 account export supplied by the user confirms it. Never
@@ -79,6 +85,11 @@ Apply the active account profile thresholds. Reject estimated net
 reward-to-risk below `1.5`, restrict risk to at most `0.5%` from `1.5` through
 `1.79`, and use normal size only at `1.8` or better. Prefer a target near `2R`.
 
+For `HYBRID_M5`, calculate `spread_to_stop_fraction`, `total_cost_r`, and
+break-even win rate. Reject spread-to-stop above `0.20` or total cost above
+`0.25R`. Until the exact strategy version is `ADVISORY_VALIDATED`, cap risk at
+`0.25%` of confirmed equity even when the base account profile permits more.
+
 ### 3. Calculate Optional Quantity
 
 Run the bundled script only when all of these are known:
@@ -91,6 +102,9 @@ Run the bundled script only when all of these are known:
 - remaining daily and portfolio risk budgets;
 - remaining correlated-exposure budget;
 - conservative cost buffers.
+- for `HYBRID_M5`, current platform spread, an explicit statement of whether
+  spread is already included in entry/exit geometry, the strategy validation
+  status, and the research risk cap.
 
 When any field is missing, return the formula and `indicative_quantity: null`.
 Do not downgrade a valid public-reference plan to `NO_TRADE` merely because
@@ -137,6 +151,7 @@ Return status, decision/risk IDs, confirmed or planned equity status, ticket
 mode/type, entry or trigger, stop, stop distance, invalidation, targets,
 gross/net reward-to-risk, estimated loss at stop, estimated net profit at
 target, risk fraction, remaining portfolio/daily/correlated budgets, expiry and
-time stop, indicative quantity or null, quantity source, sizing formula,
+time stop, spread-to-stop fraction, total-cost-R, break-even win rate,
+indicative quantity or null, quantity source, sizing formula,
 missing inputs, gap/slippage warnings, user verification checklist, and journal
 reference.

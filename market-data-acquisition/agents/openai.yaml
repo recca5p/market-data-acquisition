@@ -1,4 +1,4 @@
 interface:
   display_name: "Market Data Acquisition"
   short_description: "Rank setups from Google and Investing data"
-  default_prompt: "Use $market-data-acquisition to scan public non-crypto markets with Google-assisted discovery, Investing.com, official sources, and local calculations; never access XTB, and list the real-time XTB fields the user must provide after candidate promotion."
+  default_prompt: "Use $market-data-acquisition to scan public non-crypto markets; in HYBRID_M5 use H1/M15 for context and only a completed M5 trigger, never call one-bar-delayed M5 READY_NOW, never access XTB, and request current user-provided fields only after promotion."

@@ -38,12 +38,17 @@ account_risk_profile:
     base_amount_at_planned_equity: 15
     hard_maximum_fraction: 0.01
     hard_maximum_amount_at_planned_equity: 20
+    hybrid_m5_research_fraction: 0.0025
+    hybrid_m5_research_amount_at_planned_equity: 5
   reward:
     reject_below_estimated_net_reward_risk: 1.5
     reduced_risk_below_estimated_net_reward_risk: 1.8
     preferred_estimated_net_reward_risk: 2.0
     normal_net_profit_target_at_base_risk: 30
     normal_net_profit_target_range: [27, 40]
+  execution_cost_gates:
+    maximum_spread_to_stop_fraction: 0.20
+    maximum_total_cost_r: 0.25
   aggregate_limits:
     maximum_open_risk_fraction: 0.02
     maximum_open_risk_at_planned_equity: 40
@@ -82,6 +87,10 @@ account_risk_profile:
 
 - Use USD 15 as the normal risk budget after activation. Use less when the
   remaining daily, portfolio, or correlated-risk budget is smaller.
+- Use at most USD 5 (`0.25%`) for `HYBRID_M5` while its strategy status is
+  `RESEARCH_ONLY` or `FORWARD_OBSERVATION`. `REJECTED` and `SUSPENDED` permit
+  no ticket. The normal USD 15 budget becomes eligible only after
+  `ADVISORY_VALIDATED`.
 - Never exceed USD 20 on one trade.
 - Require estimated net reward-to-risk of at least 1.8 for normal size and aim
   for 2.0. A setup from 1.5 through 1.79 may use at most 0.5% equity risk only
@@ -92,6 +101,8 @@ account_risk_profile:
 - Do not widen a technically valid stop to consume the full money budget.
 - Always show estimated loss at stop, estimated net profit at target, risk as a
   percentage of confirmed equity, net reward-to-risk, and the quantity step.
+- For `HYBRID_M5`, also show spread-to-stop, total-cost-R, and break-even win
+  rate; reject spread-to-stop above `0.20` or total-cost-R above `0.25`.
 
 ## Session Stops
 

@@ -2,7 +2,7 @@
 
 ```yaml
 strategy_spec:
-  schema_version: "1.1"
+  schema_version: "1.2"
   strategy_id: null
   version: null
   status: RESEARCH_ONLY | REJECTED_SCOPE
@@ -20,6 +20,11 @@ strategy_spec:
     sessions: []
     decision_horizon: null
     holding_horizon: null
+    entry_timing_mode: M15 | HYBRID_M5
+    timeframe_roles:
+      regime: null
+      setup: null
+      trigger: null
     decision_windows: []
     target_qualified_opportunities_per_week: null
     maximum_no_setup_session_fraction: null
@@ -32,6 +37,7 @@ strategy_spec:
     completed_bar_policy: null
     maximum_quote_age_seconds: null
     maximum_completed_bar_lag_seconds: {}
+    maximum_trigger_bar_age_seconds: null
     event_lookback_hours: null
     event_lookahead_hours: null
     allowed_sessions: []
@@ -77,8 +83,11 @@ strategy_spec:
     roll_cost: null
     currency_conversion: null
     liquidity_constraints: null
+    maximum_spread_to_stop_fraction: null
+    maximum_total_cost_r: null
   sizing_interface:
     risk_policy_required: true
+    research_risk_cap_fraction: null
     maximum_unbounded_loss_allowed: false
     averaging_down_allowed: false
   predeclared_validation_gates:

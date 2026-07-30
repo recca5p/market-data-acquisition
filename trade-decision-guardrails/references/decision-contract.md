@@ -2,7 +2,7 @@
 
 ```yaml
 manual_trade_decision:
-  schema_version: "2.2"
+  schema_version: "2.3"
   decision_id: null
   created_at_vn: null
   decision: LONG | SHORT | NO_TRADE | WAIT_FOR_DATA
@@ -12,6 +12,20 @@ manual_trade_decision:
   execution_state: PLATFORM_TICKET_READY | NEEDS_USER_REALTIME | DIRECTION_ONLY
   xtb_interaction_allowed: false
   framework_status: VALIDATED_SYSTEMATIC | UNVALIDATED_DISCRETIONARY
+  entry_timing:
+    mode: M15 | HYBRID_M5
+    strategy_validation_status: REJECTED | RESEARCH_ONLY | FORWARD_OBSERVATION | SUSPENDED | ADVISORY_VALIDATED
+    regime_timeframe: H1
+    setup_timeframe: M15
+    trigger_timeframe: M15 | M5
+    higher_timeframe_alignment_confirmed: null
+    trigger_bar_completed: null
+    trigger_bar_completed_at_vn: null
+    trigger_data_state: PUBLIC_COMPLETED | STALE | NEEDS_USER_REALTIME | USER_PROVIDED_REALTIME
+    current_quote_observed_at_vn: null
+    current_quote_age_seconds: null
+    current_price_in_valid_zone: null
+    trigger_integrity: VALID | INVALID | UNCONFIRMED
   control_state:
     basis_incident_lock: CLEAR | ACTIVE
     basis_incident_scope: null
@@ -88,6 +102,9 @@ manual_trade_decision:
     cancel_conditions: []
     gross_reward_risk: null
     estimated_cost_per_unit: null
+    spread_to_stop_fraction: null
+    total_cost_r: null
+    break_even_win_rate: null
     estimated_net_reward_risk: null
     risk_tier: BASE | REDUCED | REJECT
     target_r_multiple: null
@@ -156,5 +173,13 @@ manual_trade_decision:
 - `READY_NOW` requires a completed trigger bar and a currently valid bounded
   public-reference entry zone. `NEAR_READY` must name exactly one missing
   market condition and cannot be presented as an executable ticket.
+- `HYBRID_M5` requires aligned H1/M15 direction, a completed M5 trigger, and a
+  current user-provided quote inside the valid zone. Public M5 lag of at least
+  300 seconds requires `NEAR_READY` plus `NEEDS_USER_REALTIME`.
+- Until `HYBRID_M5` becomes `ADVISORY_VALIDATED`, reject spread-to-stop above
+  `0.20`, total execution cost above `0.25R`, or risk above `0.25%` of
+  confirmed equity. Missing decision-critical cost inputs cannot be zero.
+- A strategy status of `REJECTED` or `SUSPENDED` cannot produce a risk-eligible
+  plan or platform ticket.
 - Public-reference numbers must never be placed in `manual_plan` ticket fields
   before platform translation.

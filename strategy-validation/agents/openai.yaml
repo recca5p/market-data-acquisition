@@ -1,4 +1,4 @@
 interface:
   display_name: "Strategy Validation"
   short_description: "Validate edge, frequency, and conversion"
-  default_prompt: "Use $strategy-validation to test a public-data non-crypto strategy for edge, drawdown, opportunity frequency, READY_NOW rate, and candidate-to-ticket conversion; never assume XTB access."
+  default_prompt: "Use $strategy-validation to compare HYBRID_M5 with its frozen M15 baseline on after-cost edge, drawdown, false triggers, opportunity frequency, latency, and candidate-to-ticket conversion; never assume XTB access."

@@ -42,7 +42,8 @@ For a manual-advisory request, resolve:
 
 - asset class and whether the primary underlying/reference is prohibited crypto;
 - requested instrument plus venue or reference basis;
-- decision horizon, required timeframes, required fields, and minimum bar counts;
+- decision horizon, `entry_timing_mode`, timeframe roles, required fields, and
+  minimum bar counts;
 - accepted provider delay or freshness expectation, allowed session, and event lookback/lookahead;
 - adjustment rules for equities and roll/expiry rules for futures.
 
@@ -114,6 +115,12 @@ spread, quote time, and value per point needed to translate
 public-reference geometry into an exact user-editable ticket and size account
 risk.
 
+Use `HYBRID_M5` as the research entry-timing mode when the user wants more
+qualified opportunities without abandoning the existing directional filter:
+H1 is regime context, M15 is setup context, and M5 is only the completed entry
+trigger. Keep `M15` as the comparison baseline. Never let an M5 signal override
+conflicting H1/M15 direction.
+
 ## Autonomous Acquisition Workflow
 
 ### 1. Resolve Scope Without a Screenshot
@@ -156,8 +163,17 @@ Classify each deep-pass candidate:
   unable to offer acceptable reward/risk.
 
 Use a default extension check of `0.75 ATR` from the relevant trigger or
-bounded entry area for an unvalidated discretionary M15 setup. This is a
-ranking heuristic, not a validated probability or ticket rule.
+bounded entry area for an unvalidated discretionary M15 setup. For
+`HYBRID_M5`, apply the versioned research profile in
+`$trade-strategy-specification` and separately measure extension from the M15
+setup area and the completed M5 trigger. These are ranking heuristics, not
+validated probabilities or ticket rules.
+
+For `HYBRID_M5`, a public M5 feed delayed by one full M5 bar or more may
+support H1/M15 context but cannot produce `READY_NOW`. Return `NEAR_READY` with
+`trigger_data_state: NEEDS_USER_REALTIME`, then request the current user
+provided M5 completed bar and quote only for the promoted candidate. A stale
+trigger must not be converted into an executable-looking plan.
 
 Do not calculate a broker ticket, position size, expected account loss,
 platform spread, margin, or fill reconciliation from public data. Public-basis
@@ -210,6 +226,9 @@ Before returning:
 - verify that every quote and OHLCV series belongs to the declared public instrument, not a similarly named spot/futures/index reference;
 - calculate indicator inputs only from identified, completed or explicitly labelled in-progress public bars; do not import an opaque buy/sell indicator;
 - enforce supplied age/lag limits when present; otherwise record the actual age and whether delay is material to the requested horizon;
+- for `HYBRID_M5`, confirm that H1 and M15 directions agree, the M5 trigger bar
+  is complete, and the current observed price has not invalidated or outrun
+  that trigger;
 - validate timestamp order, bar intervals, duplicates, gaps, nonpositive prices, impossible OHLC relationships, currency, adjustment state, session boundaries, and provider revisions;
 - compare multiple public prices where required by the request, apply its explicit discrepancy tolerance, record conflicts, and do not claim that any public source controls execution;
 - mark missing, stale, contradictory, delayed, or abnormal data explicitly.
@@ -250,8 +269,9 @@ Return this order:
 1. `Acquisition status:` `COMPLETE`, `PARTIAL`, or `BLOCKED`.
 2. `Scope:` acquisition ID, strategy/version, requested market, resolved public instrument/basis, venue/reference, horizon, required fields, and ICT observation time.
 3. `Candidate shortlist:` at most three ranked candidates with readiness,
-   public basis, setup type, completed trigger-bar state, extension, event
-   cutoff, and rejection/conflict facts.
+   entry-timing mode, timeframe roles, public basis, setup type, completed
+   trigger-bar state, trigger-data state, current-zone validity, extension,
+   event cutoff, and rejection/conflict facts.
 4. `Public market data:` field-level provenance, quote fields, provider timestamp/delay, local observation time, instrument lifecycle, and OHLCV quality/coverage.
 5. `Event and cross-market data:` confirmed facts, ICT times, and source links/identifiers.
 6. `Validation:` stale, missing, contradictory, delayed, or abnormal fields.

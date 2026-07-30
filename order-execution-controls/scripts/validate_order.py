@@ -72,6 +72,26 @@ def main() -> int:
         side = str(payload.get("side", "")).upper()
         if side not in {"LONG", "SHORT"}:
             errors.append("side must be LONG or SHORT")
+        entry_timing_mode = str(
+            payload.get("entry_timing_mode", "M15")
+        ).upper()
+        if entry_timing_mode not in {"M15", "HYBRID_M5"}:
+            errors.append("entry_timing_mode must be M15 or HYBRID_M5")
+        strategy_validation_status = str(
+            payload.get("strategy_validation_status", "RESEARCH_ONLY")
+        ).upper()
+        if strategy_validation_status not in {
+            "REJECTED",
+            "RESEARCH_ONLY",
+            "FORWARD_OBSERVATION",
+            "SUSPENDED",
+            "ADVISORY_VALIDATED",
+        }:
+            errors.append("invalid strategy_validation_status")
+        elif strategy_validation_status in {"REJECTED", "SUSPENDED"}:
+            errors.append(
+                "strategy_validation_status does not permit a ticket"
+            )
 
         raw_order_mode = payload.get("order_mode")
         raw_order_type = payload.get("order_type")
@@ -107,6 +127,77 @@ def main() -> int:
 
         now_ms = decimal_value(payload, "checked_at_epoch_ms", errors)
         expiry_ms = decimal_value(payload, "signal_expires_at_epoch_ms", errors)
+        quote_time_ms = decimal_value(
+            payload,
+            "platform_quote_observed_at_epoch_ms",
+            errors,
+            required=entry_timing_mode == "HYBRID_M5",
+        )
+        maximum_quote_age_seconds = decimal_value(
+            payload,
+            "maximum_quote_age_seconds",
+            errors,
+            required=entry_timing_mode == "HYBRID_M5",
+        )
+        trigger_bar_time_ms = decimal_value(
+            payload,
+            "trigger_bar_completed_at_epoch_ms",
+            errors,
+            required=entry_timing_mode == "HYBRID_M5",
+        )
+        maximum_trigger_bar_age_seconds = decimal_value(
+            payload,
+            "maximum_trigger_bar_age_seconds",
+            errors,
+            required=entry_timing_mode == "HYBRID_M5",
+        )
+        trigger_timeframe = str(
+            payload.get("trigger_timeframe", "")
+        ).upper()
+        trigger_bar_completed = payload.get("trigger_bar_completed")
+        higher_timeframe_alignment_confirmed = payload.get(
+            "higher_timeframe_alignment_confirmed"
+        )
+        if entry_timing_mode == "HYBRID_M5":
+            if trigger_timeframe != "M5":
+                errors.append("HYBRID_M5 requires trigger_timeframe M5")
+            if trigger_bar_completed is not True:
+                errors.append("HYBRID_M5 requires a completed M5 trigger bar")
+            if higher_timeframe_alignment_confirmed is not True:
+                errors.append(
+                    "HYBRID_M5 requires confirmed H1/M15 directional alignment"
+                )
+            for label, value in (
+                ("maximum_quote_age_seconds", maximum_quote_age_seconds),
+                (
+                    "maximum_trigger_bar_age_seconds",
+                    maximum_trigger_bar_age_seconds,
+                ),
+            ):
+                if value is not None and value <= 0:
+                    errors.append(f"{label} must be positive")
+            if now_ms is not None and quote_time_ms is not None:
+                if quote_time_ms > now_ms:
+                    errors.append(
+                        "platform_quote_observed_at_epoch_ms cannot be in the future"
+                    )
+                elif (
+                    maximum_quote_age_seconds is not None
+                    and now_ms - quote_time_ms
+                    > maximum_quote_age_seconds * Decimal("1000")
+                ):
+                    errors.append("platform quote is stale for HYBRID_M5")
+            if now_ms is not None and trigger_bar_time_ms is not None:
+                if trigger_bar_time_ms > now_ms:
+                    errors.append(
+                        "trigger_bar_completed_at_epoch_ms cannot be in the future"
+                    )
+                elif (
+                    maximum_trigger_bar_age_seconds is not None
+                    and now_ms - trigger_bar_time_ms
+                    > maximum_trigger_bar_age_seconds * Decimal("1000")
+                ):
+                    errors.append("completed M5 trigger bar is stale")
         entry = decimal_value(payload, "entry_price_for_calculation", errors)
         stop = decimal_value(payload, "stop_loss", errors)
         platform_bid = decimal_value(
@@ -127,6 +218,31 @@ def main() -> int:
             and platform_bid > platform_ask
         ):
             errors.append("platform_bid cannot exceed platform_ask")
+        platform_spread = decimal_value(
+            payload,
+            "platform_spread",
+            errors,
+            required=entry_timing_mode == "HYBRID_M5",
+        )
+        maximum_spread_to_stop_fraction = decimal_value(
+            payload,
+            "maximum_spread_to_stop_fraction",
+            errors,
+            required=entry_timing_mode == "HYBRID_M5",
+        )
+        if platform_spread is not None and platform_spread < 0:
+            errors.append("platform_spread cannot be negative")
+        if (
+            maximum_spread_to_stop_fraction is not None
+            and (
+                maximum_spread_to_stop_fraction <= 0
+                or maximum_spread_to_stop_fraction > 1
+            )
+        ):
+            errors.append(
+                "maximum_spread_to_stop_fraction must be greater than 0 "
+                "and at most 1"
+            )
 
         valid_entry_low = decimal_value(
             payload, "valid_market_entry_low", errors, required=False
@@ -211,6 +327,7 @@ def main() -> int:
                 errors.append(f"target at index {index} must be positive")
 
         price_risk: Decimal | None = None
+        spread_to_stop_fraction: Decimal | None = None
         if entry is not None and stop is not None and entry > 0 and stop > 0:
             price_risk = abs(entry - stop)
             if price_risk == 0:
@@ -219,6 +336,17 @@ def main() -> int:
                 errors.append("LONG stop must be below entry")
             elif side == "SHORT" and stop <= entry:
                 errors.append("SHORT stop must be above entry")
+            elif platform_spread is not None:
+                spread_to_stop_fraction = platform_spread / price_risk
+                if (
+                    maximum_spread_to_stop_fraction is not None
+                    and spread_to_stop_fraction
+                    > maximum_spread_to_stop_fraction
+                ):
+                    errors.append(
+                        "platform spread exceeds "
+                        "maximum_spread_to_stop_fraction"
+                    )
 
         for index, target in enumerate(targets):
             if entry is None:
@@ -295,13 +423,30 @@ def main() -> int:
 
         gross_ratios: list[str] = []
         net_ratios: list[str] = []
+        break_even_win_rates: list[str] = []
+        total_cost_r: Decimal | None = None
         cost = decimal_value(
             payload, "estimated_cost_per_unit", errors, required=False
         )
         if cost is None:
-            warnings.append("costs are unknown; net reward-to-risk is unavailable")
+            if entry_timing_mode == "HYBRID_M5":
+                errors.append(
+                    "HYBRID_M5 requires estimated_cost_per_unit"
+                )
+            else:
+                warnings.append(
+                    "costs are unknown; net reward-to-risk is unavailable"
+                )
         elif cost < 0:
             errors.append("estimated_cost_per_unit cannot be negative")
+        maximum_total_cost_r = decimal_value(
+            payload,
+            "maximum_total_cost_r",
+            errors,
+            required=entry_timing_mode == "HYBRID_M5",
+        )
+        if maximum_total_cost_r is not None and maximum_total_cost_r <= 0:
+            errors.append("maximum_total_cost_r must be positive")
 
         minimum_ratio = decimal_value(
             payload, "minimum_reward_risk", errors, required=False
@@ -310,6 +455,15 @@ def main() -> int:
             errors.append("minimum_reward_risk must be positive")
 
         if entry is not None and price_risk is not None and price_risk > 0:
+            if cost is not None:
+                total_cost_r = cost / price_risk
+                if (
+                    maximum_total_cost_r is not None
+                    and total_cost_r > maximum_total_cost_r
+                ):
+                    errors.append(
+                        "total execution cost exceeds maximum_total_cost_r"
+                    )
             for target in targets:
                 reward = abs(target - entry)
                 gross = reward / price_risk
@@ -319,6 +473,10 @@ def main() -> int:
                     net_reward = reward - cost
                     net = net_reward / net_risk if net_risk > 0 else Decimal("-1")
                     net_ratios.append(as_text(net))
+                    if net_reward > 0:
+                        break_even_win_rates.append(
+                            as_text(net_risk / (net_risk + net_reward))
+                        )
                     if minimum_ratio is not None and net < minimum_ratio:
                         errors.append(
                             f"net reward-to-risk {as_text(net)} is below "
@@ -339,6 +497,12 @@ def main() -> int:
         )
         maximum_trade_risk_fraction = decimal_value(
             payload, "maximum_trade_risk_fraction", errors, required=False
+        )
+        research_risk_cap_fraction = decimal_value(
+            payload,
+            "research_risk_cap_fraction",
+            errors,
+            required=False,
         )
         maximum_portfolio_heat_fraction = decimal_value(
             payload,
@@ -361,9 +525,43 @@ def main() -> int:
                 "maximum_portfolio_heat_fraction",
                 maximum_portfolio_heat_fraction,
             ),
+            ("research_risk_cap_fraction", research_risk_cap_fraction),
         ):
             if value is not None and (value <= 0 or value > 1):
                 errors.append(f"{label} must be greater than 0 and at most 1")
+        if (
+            entry_timing_mode == "HYBRID_M5"
+            and strategy_validation_status != "ADVISORY_VALIDATED"
+        ):
+            if research_risk_cap_fraction is None:
+                errors.append(
+                    "HYBRID_M5 research ticket requires "
+                    "research_risk_cap_fraction"
+                )
+            elif research_risk_cap_fraction > Decimal("0.0025"):
+                errors.append(
+                    "HYBRID_M5 research_risk_cap_fraction cannot exceed 0.0025"
+                )
+            if account_equity is None or estimated_loss is None:
+                errors.append(
+                    "HYBRID_M5 research ticket requires confirmed equity "
+                    "and estimated loss"
+                )
+            if maximum_trade_risk_fraction is None:
+                errors.append(
+                    "HYBRID_M5 research ticket requires "
+                    "maximum_trade_risk_fraction"
+                )
+            if (
+                maximum_trade_risk_fraction is not None
+                and research_risk_cap_fraction is not None
+                and maximum_trade_risk_fraction
+                > research_risk_cap_fraction
+            ):
+                errors.append(
+                    "maximum_trade_risk_fraction exceeds the HYBRID_M5 "
+                    "research cap"
+                )
 
         trade_risk_fraction: Decimal | None = None
         resulting_heat_fraction: Decimal | None = None
@@ -459,10 +657,31 @@ def main() -> int:
             if order_type is not None
             else None
         )
+        ticket_valid = not errors
         result = {
             "status": status,
             "gross_reward_risk_by_target": gross_ratios,
             "estimated_net_reward_risk_by_target": net_ratios,
+            "break_even_win_rate_by_target": break_even_win_rates,
+            "total_cost_r": (
+                as_text(total_cost_r)
+                if total_cost_r is not None
+                else None
+            ),
+            "entry_timing_mode": entry_timing_mode,
+            "strategy_validation_status": strategy_validation_status,
+            "hybrid_checks": {
+                "higher_timeframe_alignment_confirmed": (
+                    higher_timeframe_alignment_confirmed
+                ),
+                "trigger_timeframe": trigger_timeframe or None,
+                "trigger_bar_completed": trigger_bar_completed,
+                "spread_to_stop_fraction": (
+                    as_text(spread_to_stop_fraction)
+                    if spread_to_stop_fraction is not None
+                    else None
+                ),
+            },
             "errors": errors,
             "warnings": warnings,
             "account_risk": {
@@ -500,18 +719,32 @@ def main() -> int:
                 ),
             },
             "platform_ticket": {
-                "tab": ticket_tab,
-                "type": display_type,
-                "button": button,
+                "tab": ticket_tab if ticket_valid else None,
+                "type": display_type if ticket_valid else None,
+                "button": button if ticket_valid else None,
                 "quantity": (
-                    as_text(quantity) if quantity is not None else None
+                    as_text(quantity)
+                    if ticket_valid and quantity is not None
+                    else None
                 ),
-                "quantity_source": quantity_source,
-                "price": as_text(entry) if entry is not None else None,
-                "stop_loss_enabled": stop is not None,
-                "stop_loss": as_text(stop) if stop is not None else None,
-                "take_profit_enabled": bool(targets),
-                "take_profit": as_text(targets[0]) if targets else None,
+                "quantity_source": quantity_source if ticket_valid else None,
+                "price": (
+                    as_text(entry)
+                    if ticket_valid and entry is not None
+                    else None
+                ),
+                "stop_loss_enabled": ticket_valid and stop is not None,
+                "stop_loss": (
+                    as_text(stop)
+                    if ticket_valid and stop is not None
+                    else None
+                ),
+                "take_profit_enabled": ticket_valid and bool(targets),
+                "take_profit": (
+                    as_text(targets[0])
+                    if ticket_valid and targets
+                    else None
+                ),
             },
             "agent_may_submit_orders": False,
             "broker_connection_required": False,

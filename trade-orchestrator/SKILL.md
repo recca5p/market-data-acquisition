@@ -44,6 +44,16 @@ ticket and sizing until reconciled.
 
 Resolve the instrument, public reference basis, direction horizon, and useful timeframes. If the user does not name a venue, choose a common public reference and disclose that it may differ from the user's platform.
 
+Choose one `entry_timing_mode`:
+
+- `M15` for the existing completed-M15 baseline;
+- `HYBRID_M5` when the user wants a higher opportunity rate while retaining
+  H1 regime and M15 setup filters. Treat it as `RESEARCH_ONLY` until the exact
+  profile is validated.
+
+In `HYBRID_M5`, H1/M15 determine direction and M5 only confirms timing. Never
+promote a countertrend M5 pattern.
+
 Define one session window:
 
 - `ASIA`;
@@ -107,6 +117,12 @@ public bars. After promoting the primary candidate, ask the user once for
 compact real-time text containing symbol, bid, ask, spread, quote time, and
 value per point. Accept a screenshot only when the user prefers it.
 
+For `HYBRID_M5`, public M5 delayed by at least one full bar cannot produce
+`READY_NOW`. In that case ask once for the promoted symbol's current quote and
+latest completed M5 OHLC/time; a focused platform screenshot is acceptable
+because it refreshes the trigger and does not duplicate the usable H1/M15
+context.
+
 When the user already provides a platform screenshot, capture its broker
 symbol, bid, ask, spread, selected quantity, supported order tabs, point/pip
 value, margin, fees, and swap when visible. Treat the platform quote as the
@@ -127,6 +143,10 @@ zone and require platform translation before a ticket. Use `WAIT_FOR_DATA`
 only when the public instrument, timestamps, required bars, or material event
 facts are unusable or contradictory. Missing account or platform fields are
 not public-data blockers.
+
+For `HYBRID_M5`, distinguish directional sufficiency from trigger readiness:
+usable H1/M15 plus stale/absent current M5 returns `NEAR_READY` and
+`NEEDS_USER_REALTIME`, not `WAIT_FOR_DATA` and not `READY_NOW`.
 
 ### 3. Build the Directional Plan
 
@@ -162,6 +182,11 @@ reported. After confirmation, normally risk USD 15, never more than USD 20,
 cap total open risk at USD 40, and target approximately 2R after costs. Deduct
 every known open and pending order before sizing.
 
+Until the `HYBRID_M5` profile is `ADVISORY_VALIDATED`, cap risk at `0.25%` of
+confirmed equity. Require explicit spread, fee, slippage, and financing
+buffers; reject spread greater than `0.20` of stop distance or total estimated
+execution cost above `0.25R`.
+
 ### 5. Optionally Check the Manual Ticket
 
 Call `$order-execution-controls` only after
@@ -185,6 +210,11 @@ and while the current user-provided XTB quote is inside the valid entry zone.
 Do not create alerts, monitors, or pre-trigger pending orders. Use a pending
 order only when the user explicitly requests it or an exact validated strategy
 requires it.
+
+For `HYBRID_M5`, the translated Market ticket additionally requires a fresh
+current quote, a completed M5 trigger timestamp, confirmed H1/M15 alignment,
+and preserved trigger integrity. Do not pre-stage an order while waiting for
+the M5 bar.
 
 If platform basis is not reconciled, preserve the ready-now direction and
 public-reference plan, choose `REQUEST_USER_REALTIME`, and ask the user once
@@ -223,6 +253,9 @@ Equity + lệnh đang mở/chờ: <chỉ hỏi nếu cần tính khối lượng
 Ask once for the promoted primary candidate. Accept compact text as the
 default; do not require a screenshot and do not ask the user for public chart
 data the skills can obtain from Google/Investing.
+
+For `HYBRID_M5`, append only `M5 vừa đóng (giờ + O/H/L/C)` to that compact
+request when the public M5 feed is delayed by one bar or more.
 
 After that concise block, show:
 

@@ -73,16 +73,26 @@ function autoSession() {
 }
 
 function parseArgs(argv) {
-  const options = { top: 8, symbols: null, session: "ALL" };
+  const options = {
+    top: 8,
+    symbols: null,
+    session: "ALL",
+    entryTiming: "HYBRID_M5",
+    selfTest: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--top") options.top = Number(argv[++i]);
     else if (argv[i] === "--symbols") {
       options.symbols = argv[++i].split(",").map((value) => value.trim());
     } else if (argv[i] === "--session") {
       options.session = argv[++i].replaceAll("-", "_").toUpperCase();
+    } else if (argv[i] === "--entry-timing") {
+      options.entryTiming = argv[++i].replaceAll("-", "_").toUpperCase();
+    } else if (argv[i] === "--self-test") {
+      options.selfTest = true;
     } else if (argv[i] === "--help") {
       process.stdout.write(
-        "Usage: scan_public_markets.mjs [--top N] [--session all|auto|asia|europe|us-preopen|us-cash|overnight] [--symbols SYMBOL,...]\n",
+        "Usage: scan_public_markets.mjs [--top N] [--session all|auto|asia|europe|us-preopen|us-cash|overnight] [--symbols SYMBOL,...] [--entry-timing hybrid-m5|m15] [--self-test]\n",
       );
       process.exit(0);
     } else {
@@ -95,6 +105,9 @@ function parseArgs(argv) {
   const allowedSessions = ["ALL", "AUTO", ...Object.keys(SESSION_CORES)];
   if (!allowedSessions.includes(options.session)) {
     throw new Error(`--session must be one of ${allowedSessions.join(", ")}`);
+  }
+  if (!["HYBRID_M5", "M15"].includes(options.entryTiming)) {
+    throw new Error("--entry-timing must be hybrid-m5 or m15");
   }
   if (options.session === "AUTO") options.session = autoSession();
   return options;
@@ -197,10 +210,12 @@ function metrics(bars) {
   if (bars.length < 21) return null;
   const closes = bars.map((bar) => bar.close);
   const last = bars.at(-1);
+  const previous = bars.at(-2);
   const prior20 = bars.slice(-21, -1);
   const prior60 = bars.slice(-61, -1);
   return {
     last,
+    previous,
     ema20: ema(closes, 20),
     ema50: ema(closes, 50),
     rsi14: rsi(closes),
@@ -223,46 +238,181 @@ function trendVote(metric) {
   return 0;
 }
 
-function classifyCandidate(m15, h1, daily, providerLagSeconds) {
-  const vote = trendVote(m15) + trendVote(h1) + trendVote(daily);
+function alignedContext(m15, h1) {
+  const m15Vote = trendVote(m15);
+  const h1Vote = trendVote(h1);
   const direction =
-    vote >= 3 ? "BULLISH" : vote <= -3 ? "BEARISH" : "MIXED";
+    m15Vote === 2 && h1Vote === 2
+      ? "BULLISH"
+      : m15Vote === -2 && h1Vote === -2
+        ? "BEARISH"
+        : "MIXED";
+  return { direction, vote: m15Vote + h1Vote, m15Vote, h1Vote };
+}
+
+function classifyCandidate({
+  m5,
+  m15,
+  h1,
+  daily,
+  providerLagSeconds,
+  currentPrice,
+  entryTiming,
+}) {
+  const hybrid = entryTiming === "HYBRID_M5";
+  const context = alignedContext(m15, h1);
+  const vote = hybrid
+    ? context.vote
+    : trendVote(m15) + trendVote(h1) + trendVote(daily);
+  const direction = hybrid
+    ? context.direction
+    : vote >= 3
+      ? "BULLISH"
+      : vote <= -3
+        ? "BEARISH"
+        : "MIXED";
+  const triggerMetric = hybrid ? m5 : m15;
+  const contextSetupExtensionAtr =
+    m15 &&
+    Number.isFinite(m15.atr14) &&
+    m15.atr14 > 0 &&
+    Number.isFinite(m15.ema20)
+      ? Math.abs(m15.last.close - m15.ema20) / m15.atr14
+      : null;
   let setupType = "NONE";
   let trigger = null;
-  if (m15 && direction === "BULLISH" && m15.last.close > m15.prior20High) {
-    setupType = "BREAKOUT_CLOSE";
-    trigger = m15.prior20High;
-  } else if (
-    m15 &&
-    direction === "BEARISH" &&
-    m15.last.close < m15.prior20Low
-  ) {
-    setupType = "BREAKOUT_CLOSE";
-    trigger = m15.prior20Low;
-  } else if (m15 && Math.abs(vote) >= 4) {
-    setupType = "TREND_PULLBACK";
-    trigger = m15.ema20;
+  let triggerConditionMet = false;
+  if (hybrid && triggerMetric?.previous) {
+    const confirmsLong =
+      direction === "BULLISH" &&
+      triggerMetric.last.close > triggerMetric.previous.high &&
+      triggerMetric.last.close > triggerMetric.last.open;
+    const confirmsShort =
+      direction === "BEARISH" &&
+      triggerMetric.last.close < triggerMetric.previous.low &&
+      triggerMetric.last.close < triggerMetric.last.open;
+    if (
+      confirmsLong &&
+      triggerMetric.last.close > triggerMetric.prior20High
+    ) {
+      setupType = "BREAKOUT_CLOSE";
+      trigger = triggerMetric.last.close;
+      triggerConditionMet = true;
+    } else if (
+      confirmsShort &&
+      triggerMetric.last.close < triggerMetric.prior20Low
+    ) {
+      setupType = "BREAKOUT_CLOSE";
+      trigger = triggerMetric.last.close;
+      triggerConditionMet = true;
+    } else if (confirmsLong || confirmsShort) {
+      setupType = "TREND_PULLBACK";
+      trigger = triggerMetric.last.close;
+      triggerConditionMet = true;
+    }
+  } else if (!hybrid) {
+    if (
+      triggerMetric &&
+      direction === "BULLISH" &&
+      triggerMetric.last.close > triggerMetric.prior20High
+    ) {
+      setupType = "BREAKOUT_CLOSE";
+      trigger = triggerMetric.prior20High;
+      triggerConditionMet = true;
+    } else if (
+      triggerMetric &&
+      direction === "BEARISH" &&
+      triggerMetric.last.close < triggerMetric.prior20Low
+    ) {
+      setupType = "BREAKOUT_CLOSE";
+      trigger = triggerMetric.prior20Low;
+      triggerConditionMet = true;
+    } else if (
+      triggerMetric &&
+      direction !== "MIXED" &&
+      Math.abs(vote) >= 4
+    ) {
+      setupType = "TREND_PULLBACK";
+      trigger = triggerMetric.ema20;
+      triggerConditionMet = true;
+    }
   }
 
   const extensionAtr =
-    m15 && Number.isFinite(m15.atr14) && m15.atr14 > 0 && Number.isFinite(trigger)
-      ? Math.abs(m15.last.close - trigger) / m15.atr14
+    triggerMetric &&
+    Number.isFinite(triggerMetric.atr14) &&
+    triggerMetric.atr14 > 0 &&
+    Number.isFinite(trigger)
+      ? Math.abs(triggerMetric.last.close - trigger) / triggerMetric.atr14
+      : null;
+  const currentExtensionAtr =
+    triggerMetric &&
+    Number.isFinite(triggerMetric.atr14) &&
+    triggerMetric.atr14 > 0 &&
+    Number.isFinite(trigger) &&
+    Number.isFinite(currentPrice)
+      ? Math.abs(currentPrice - trigger) / triggerMetric.atr14
       : null;
   const roomToLevelAtr =
-    m15 && Number.isFinite(m15.atr14) && m15.atr14 > 0
+    triggerMetric &&
+    Number.isFinite(triggerMetric.atr14) &&
+    triggerMetric.atr14 > 0 &&
+    Number.isFinite(currentPrice)
       ? direction === "BULLISH"
-        ? Math.max(0, m15.prior60High - m15.last.close) / m15.atr14
+        ? Math.max(0, triggerMetric.prior60High - currentPrice) /
+          triggerMetric.atr14
         : direction === "BEARISH"
-          ? Math.max(0, m15.last.close - m15.prior60Low) / m15.atr14
+          ? Math.max(0, currentPrice - triggerMetric.prior60Low) /
+            triggerMetric.atr14
           : 0
       : null;
 
+  let triggerIntegrity = triggerConditionMet;
+  if (
+    triggerConditionMet &&
+    triggerMetric &&
+    Number.isFinite(currentPrice)
+  ) {
+    if (setupType === "BREAKOUT_CLOSE") {
+      triggerIntegrity =
+        direction === "BULLISH"
+          ? currentPrice >= trigger
+          : direction === "BEARISH"
+            ? currentPrice <= trigger
+            : false;
+    } else if (setupType === "TREND_PULLBACK") {
+      triggerIntegrity =
+        direction === "BULLISH"
+          ? currentPrice >= triggerMetric.last.low
+          : direction === "BEARISH"
+            ? currentPrice <= triggerMetric.last.high
+            : false;
+    }
+  }
+
   let readiness = "NEAR_READY";
-  const stale = providerLagSeconds > 1800;
-  if (stale || direction === "MIXED" || setupType === "NONE") readiness = "REJECT";
-  else if (
-    Number.isFinite(extensionAtr) &&
-    extensionAtr <= 0.75 &&
+  const staleForTrigger = providerLagSeconds >= (hybrid ? 300 : 1800);
+  let triggerDataState = staleForTrigger ? "STALE" : "PUBLIC_COMPLETED";
+  const contextExtended =
+    hybrid &&
+    Number.isFinite(contextSetupExtensionAtr) &&
+    contextSetupExtensionAtr > 0.75;
+  if (direction === "MIXED" || contextExtended) {
+    readiness = "REJECT";
+  } else if (hybrid && !triggerConditionMet) {
+    readiness = "NEAR_READY";
+    if (staleForTrigger) triggerDataState = "NEEDS_USER_REALTIME";
+  } else if (!triggerIntegrity) {
+    readiness = "REJECT";
+  } else if (hybrid && staleForTrigger) {
+    readiness = "NEAR_READY";
+    triggerDataState = "NEEDS_USER_REALTIME";
+  } else if (staleForTrigger) {
+    readiness = "REJECT";
+    triggerDataState = "STALE";
+  } else if (
+    Number.isFinite(currentExtensionAtr) &&
+    currentExtensionAtr <= 0.75 &&
     Math.abs(vote) >= 4
   ) {
     readiness = "READY_NOW";
@@ -273,16 +423,45 @@ function classifyCandidate(m15, h1, daily, providerLagSeconds) {
     (readiness === "READY_NOW" ? 25 : readiness === "NEAR_READY" ? 10 : 0) +
     (setupType === "BREAKOUT_CLOSE" ? 5 : 0) -
     Math.min(providerLagSeconds / 60, 30) -
-    (Number.isFinite(extensionAtr) ? Math.max(0, extensionAtr - 0.75) * 8 : 0);
+    (Number.isFinite(currentExtensionAtr)
+      ? Math.max(0, currentExtensionAtr - 0.75) * 8
+      : 0);
 
   return {
     direction,
     setupType,
     readiness,
     trendVote: vote,
+    contextVotes: {
+      m15: context.m15Vote,
+      h1: context.h1Vote,
+    },
+    contextSetupExtensionAtr,
     extensionAtr,
+    currentExtensionAtr,
     roomToLevelAtr,
+    triggerIntegrity,
+    triggerConditionMet,
+    triggerDataState,
+    triggerTimeframe: hybrid ? "M5" : "M15",
     score,
+  };
+}
+
+function metricSnapshot(metric, intervalSeconds) {
+  if (!metric) return null;
+  return {
+    opened_at_vn: formatIct(metric.last.timestamp),
+    closed_at_vn: formatIct(metric.last.timestamp + intervalSeconds),
+    open: round(metric.last.open),
+    high: round(metric.last.high),
+    low: round(metric.last.low),
+    close: round(metric.last.close),
+    volume: metric.last.volume,
+    atr14: round(metric.atr14),
+    rsi14: round(metric.rsi14, 1),
+    prior20_high: round(metric.prior20High),
+    prior20_low: round(metric.prior20Low),
   };
 }
 
@@ -305,57 +484,174 @@ async function fetchChart(symbol, interval, range) {
 }
 
 async function scanOne([bucket, publicSymbol, brokerSymbol]) {
-  const [m15Raw, h1Raw, dailyRaw] = await Promise.all([
+  const [m5Raw, m15Raw, h1Raw, dailyRaw] = await Promise.all([
+    options.entryTiming === "HYBRID_M5"
+      ? fetchChart(publicSymbol, "5m", "5d")
+      : Promise.resolve(null),
     fetchChart(publicSymbol, "15m", "5d"),
     fetchChart(publicSymbol, "60m", "1mo"),
     fetchChart(publicSymbol, "1d", "1y"),
   ]);
-  const providerTime = m15Raw.result.meta.regularMarketTime;
+  const triggerRaw = m5Raw || m15Raw;
+  const providerTime = triggerRaw.result.meta.regularMarketTime;
   const providerLagSeconds = Math.max(
     0,
     Math.floor(Date.now() / 1000) - providerTime,
   );
+  const currentPrice = triggerRaw.result.meta.regularMarketPrice;
+  const m5 = m5Raw ? metrics(normalizeBars(m5Raw.result, 300)) : null;
   const m15 = metrics(normalizeBars(m15Raw.result, 900));
   const h1 = metrics(normalizeBars(h1Raw.result, 3600));
   const daily = metrics(normalizeBars(dailyRaw.result, 86400, true));
-  const classification = classifyCandidate(
+  const classification = classifyCandidate({
+    m5,
     m15,
     h1,
     daily,
     providerLagSeconds,
-  );
+    currentPrice,
+    entryTiming: options.entryTiming,
+  });
   return {
     bucket,
     public_symbol: publicSymbol,
     intended_broker_symbol: brokerSymbol,
     public_reference_basis: `${m15Raw.result.meta.exchangeName || "public"} ${m15Raw.result.meta.instrumentType || "market"} reference`,
     currency: m15Raw.result.meta.currency || null,
-    provider_price: round(m15Raw.result.meta.regularMarketPrice),
+    entry_timing_mode: options.entryTiming,
+    context_timeframes: ["H1", "M15"],
+    trigger_timeframe: classification.triggerTimeframe,
+    trigger_data_state: classification.triggerDataState,
+    provider_price: round(currentPrice),
     provider_time_vn: formatIct(providerTime),
     provider_lag_seconds: providerLagSeconds,
     readiness: classification.readiness,
     directional_structure: classification.direction,
     setup_type: classification.setupType,
     trend_vote: classification.trendVote,
+    context_votes: classification.contextVotes,
+    context_setup_extension_atr: round(
+      classification.contextSetupExtensionAtr,
+      2,
+    ),
     extension_atr: round(classification.extensionAtr, 2),
+    current_extension_atr: round(classification.currentExtensionAtr, 2),
+    current_price_in_valid_zone:
+      classification.triggerIntegrity &&
+      Number.isFinite(classification.currentExtensionAtr) &&
+      classification.currentExtensionAtr <= 0.75,
+    trigger_integrity: classification.triggerIntegrity,
+    trigger_condition_met: classification.triggerConditionMet,
     room_to_recent_level_atr: round(classification.roomToLevelAtr, 2),
-    last_completed_m15: m15
-      ? {
-          opened_at_vn: formatIct(m15.last.timestamp),
-          open: round(m15.last.open),
-          high: round(m15.last.high),
-          low: round(m15.last.low),
-          close: round(m15.last.close),
-          volume: m15.last.volume,
-          atr14: round(m15.atr14),
-          rsi14: round(m15.rsi14, 1),
-          prior20_high: round(m15.prior20High),
-          prior20_low: round(m15.prior20Low),
-        }
-      : null,
+    last_completed_m5: metricSnapshot(m5, 300),
+    last_completed_m15: metricSnapshot(m15, 900),
+    last_completed_trigger_bar: metricSnapshot(
+      options.entryTiming === "HYBRID_M5" ? m5 : m15,
+      options.entryTiming === "HYBRID_M5" ? 300 : 900,
+    ),
     ranking_score: round(classification.score, 2),
-    source_url: m15Raw.url,
+    source_url: triggerRaw.url,
   };
+}
+
+function runSelfTest() {
+  const bullishMetric = {
+    last: { timestamp: 1, open: 99.7, high: 100.2, low: 99.8, close: 100 },
+    previous: { timestamp: 0, open: 99.5, high: 99.9, low: 99.4, close: 99.7 },
+    ema20: 99.9,
+    ema50: 99.5,
+    rsi14: 55,
+    atr14: 1,
+    prior20High: 101,
+    prior20Low: 98,
+    prior60High: 103,
+    prior60Low: 97,
+  };
+  const m15Ready = classifyCandidate({
+    m5: null,
+    m15: bullishMetric,
+    h1: bullishMetric,
+    daily: bullishMetric,
+    providerLagSeconds: 60,
+    currentPrice: 100,
+    entryTiming: "M15",
+  });
+  if (m15Ready.readiness !== "READY_NOW") {
+    throw new Error("self-test failed: valid M15 setup was not READY_NOW");
+  }
+  const m15Broken = classifyCandidate({
+    m5: null,
+    m15: bullishMetric,
+    h1: bullishMetric,
+    daily: bullishMetric,
+    providerLagSeconds: 60,
+    currentPrice: 99.7,
+    entryTiming: "M15",
+  });
+  if (m15Broken.readiness !== "REJECT" || m15Broken.triggerIntegrity) {
+    throw new Error("self-test failed: broken trigger was not rejected");
+  }
+  const hybridDelayed = classifyCandidate({
+    m5: bullishMetric,
+    m15: bullishMetric,
+    h1: bullishMetric,
+    daily: bullishMetric,
+    providerLagSeconds: 600,
+    currentPrice: 100,
+    entryTiming: "HYBRID_M5",
+  });
+  if (
+    hybridDelayed.readiness !== "NEAR_READY" ||
+    hybridDelayed.triggerDataState !== "NEEDS_USER_REALTIME"
+  ) {
+    throw new Error("self-test failed: delayed M5 trigger did not request realtime");
+  }
+  const noM5Trigger = classifyCandidate({
+    m5: {
+      ...bullishMetric,
+      last: {
+        timestamp: 1,
+        open: 100.1,
+        high: 100.2,
+        low: 99.9,
+        close: 100,
+      },
+      previous: {
+        timestamp: 0,
+        open: 99.9,
+        high: 100.1,
+        low: 99.8,
+        close: 100,
+      },
+    },
+    m15: bullishMetric,
+    h1: bullishMetric,
+    daily: bullishMetric,
+    providerLagSeconds: 60,
+    currentPrice: 100,
+    entryTiming: "HYBRID_M5",
+  });
+  if (
+    noM5Trigger.readiness !== "NEAR_READY" ||
+    noM5Trigger.triggerConditionMet
+  ) {
+    throw new Error("self-test failed: absent M5 trigger was not kept near-ready");
+  }
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        status: "PASS",
+        tests: [
+          "current price remains inside valid M15 trigger",
+          "broken M15 trigger is rejected",
+          "delayed public M5 trigger requires user realtime",
+          "aligned context without M5 confirmation remains near-ready",
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  );
 }
 
 async function mapWithConcurrency(items, concurrency, mapper) {
@@ -383,6 +679,10 @@ async function mapWithConcurrency(items, concurrency, mapper) {
 }
 
 const options = parseArgs(process.argv.slice(2));
+if (options.selfTest) {
+  runSelfTest();
+  process.exit(0);
+}
 const requested = options.symbols
   ? DEFAULT_UNIVERSE.filter(
       (item) =>
@@ -407,13 +707,16 @@ const ranked = results
 process.stdout.write(
   `${JSON.stringify(
     {
-      schema_version: "1.0",
+      schema_version: "1.1",
       observed_at_vn: formatIct(Math.floor(Date.now() / 1000)),
       elapsed_seconds: Math.floor(Date.now() / 1000) - scanStarted,
       source_mode: "PUBLIC_NON_EXECUTABLE",
       scan_scope: options.symbols ? "CUSTOM_SYMBOLS" : options.session,
+      entry_timing_mode: options.entryTiming,
       methodology_warning:
-        "Mechanical Yahoo-reference breadth ranking only. Deep-check promoted candidates with publicly visible Investing.com data and official events. Never treat this as XTB data; current XTB values must come from the user.",
+        options.entryTiming === "HYBRID_M5"
+          ? "Mechanical Yahoo-reference breadth ranking only. HYBRID_M5 uses H1/M15 for context and M5 only for a completed entry trigger. A public M5 lag of five minutes or more cannot produce READY_NOW and requires user-provided realtime. Deep-check promoted candidates with publicly visible Investing.com data and official events. Never treat this as XTB data; current XTB values must come from the user."
+          : "Mechanical Yahoo-reference breadth ranking using the completed-M15 baseline. Deep-check promoted candidates with publicly visible Investing.com data and official events. Never treat this as XTB data; current XTB values must come from the user.",
       requested_count: requested.length,
       success_count: ranked.length,
       failure_count: failures.length,

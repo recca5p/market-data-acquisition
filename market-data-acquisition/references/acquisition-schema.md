@@ -17,7 +17,7 @@
 
 ```yaml
 acquisition:
-  schema_version: "2.2"
+  schema_version: "2.3"
   acquisition_id: null
   status: COMPLETE | PARTIAL | BLOCKED
   acquired_at_vn: "YYYY-MM-DD HH:mm:ss ICT"
@@ -28,6 +28,11 @@ acquisition:
     validation_id: null
     framework_status: VALIDATED_SYSTEMATIC | UNVALIDATED_DISCRETIONARY
     decision_horizon: null
+    entry_timing_mode: M15 | HYBRID_M5
+    timeframe_roles:
+      regime: H1
+      setup: M15
+      trigger: M15 | M5
     required_timeframes: []
     required_fields: []
     minimum_bar_counts: {}
@@ -100,16 +105,32 @@ public_market_snapshot:
 candidate_shortlist:
   - rank: null
     readiness: READY_NOW | NEAR_READY | REJECT
+    entry_timing_mode: M15 | HYBRID_M5
+    context_timeframes: [H1, M15]
     public_symbol: null
     intended_broker_symbol: null
     public_reference_basis: null
     directional_structure: BULLISH | BEARISH | MIXED
     setup_type: TREND_PULLBACK | BREAKOUT_CLOSE | FAILED_BREAKOUT | NONE
     trigger_timeframe: null
+    trigger_data_state: PUBLIC_COMPLETED | STALE | NEEDS_USER_REALTIME | USER_PROVIDED_REALTIME
     last_completed_trigger_bar_at_vn: null
+    last_completed_m5:
+      opened_at_vn: null
+      closed_at_vn: null
+      open: null
+      high: null
+      low: null
+      close: null
     reference_entry_area: null
     reference_invalidation: null
+    context_setup_extension_atr: null
     extension_atr: null
+    current_extension_atr: null
+    current_price_in_valid_zone: null
+    trigger_integrity: VALID | INVALID | UNCONFIRMED
+    trigger_condition_met: null
+    higher_timeframe_alignment_confirmed: null
     room_to_next_level_atr: null
     event_cutoff_at_vn: null
     supporting_facts: []
@@ -193,6 +214,14 @@ Set `manual_advisory_data_sufficient: true` when:
 Provider delay is acceptable when disclosed. If it is material relative to the
 horizon, keep the package sufficient but require a conditional public entry
 area followed by user-provided XTB real-time confirmation.
+
+For `HYBRID_M5`, public H1/M15 context may remain directionally sufficient
+while the trigger is not executable. If M5 lag is at least 300 seconds, set
+the candidate to `NEAR_READY`, set
+`trigger_data_state: NEEDS_USER_REALTIME`, and request only the promoted
+candidate's current completed M5 bar and executable-side quote. `READY_NOW`
+requires a completed, fresh M5 trigger plus a current price that preserves the
+trigger and bounded entry zone.
 
 Keep `execution_ready: false` in every case. Broker/account access is
 prohibited for this skill. Missing broker symbol, bid/ask,

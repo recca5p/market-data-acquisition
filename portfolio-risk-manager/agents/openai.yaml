@@ -1,4 +1,4 @@
 interface:
   display_name: "Manual Trade Risk Planner"
   short_description: "Build risk geometry before optional sizing"
-  default_prompt: "Use $portfolio-risk-manager to calculate public-reference entry, stop, targets, and reward-to-risk now; add XTB quantity only from current contract and account values directly supplied by the user."
+  default_prompt: "Use $portfolio-risk-manager to calculate bounded risk geometry; for HYBRID_M5 require explicit spread and costs, apply spread-to-stop and total-cost-R gates plus the research risk cap, and size only from current user-supplied XTB/account values."

@@ -59,11 +59,22 @@ volatility, session, and event proximity.
 
 Run parameter perturbation, cost/slippage stress, delayed-data stress, missing-data stress, and bootstrap or other uncertainty analysis. Flag dependence on a few trades, a narrow parameter optimum, or one market regime.
 
+When validating `HYBRID_M5`, freeze `M15` as the baseline and compare both
+versions on identical instruments, sessions, data periods, event exclusions,
+and portfolio constraints. Report whether the added M5 candidates improve
+after-cost expectancy rather than only trade count. Include M5 false-trigger
+rate, spread-to-stop, total-cost-R, break-even win rate, MAE/MFE, latency from
+zero to two M5 bars, and platform-translation misses.
+
 If the strategy outputs probabilities, evaluate out-of-sample calibration and store the calibration method and validity range.
 
 ### 5. Stage Deployment
 
 Allow `FORWARD_OBSERVATION` only when all predeclared historical gates pass. Require a new, time-forward observation period with the same code path, data timing, and cost model before `ADVISORY_VALIDATED`.
+
+Keep the `0.25%` `HYBRID_M5` research risk cap through
+`FORWARD_OBSERVATION`. Only an exact `ADVISORY_VALIDATED` artifact may activate
+the normal account-profile risk tier.
 
 Define review thresholds for drift, realized slippage, calibration, drawdown,
 error rate, missing/stale data, setup drought, and translation miss rate. Set

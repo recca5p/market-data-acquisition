@@ -35,6 +35,7 @@ Require:
   dated exchange futures, yields, and the broker CFD used for the ticket;
 - displayed or derived reference price with provider or observation time;
 - enough labelled bars and context for the chosen horizon;
+- `entry_timing_mode` and explicit regime, setup, and trigger timeframe roles;
 - known or estimated provider delay;
 - material scheduled-event and abnormal-market flags when relevant.
 
@@ -114,6 +115,18 @@ Classify readiness:
 - `REJECT`: no coherent edge, excessive extension, insufficient room,
   unacceptable event exposure, or invalid data.
 
+For `HYBRID_M5`, require H1 and M15 to agree on direction before evaluating
+M5. Use only a completed M5 bar as the trigger, and require the current
+executable-side quote to remain inside the bounded M5 entry zone without
+crossing trigger invalidation. M5 is timing evidence, never a standalone
+countertrend signal.
+
+If public M5 is delayed by at least 300 seconds, the candidate may be
+`NEAR_READY` with `execution_state: NEEDS_USER_REALTIME`, but not `READY_NOW`.
+Ask once for the promoted candidate's current XTB quote and completed M5 bar.
+This is a distinct, decision-critical trigger update, not a duplicate request
+for usable public H1/M15 screenshots.
+
 For an unvalidated discretionary M15 setup, use `0.75 ATR` beyond the trigger
 or intended entry area as the default maximum extension unless market
 structure justifies a tighter bound. Do not require a retest after every
@@ -141,6 +154,10 @@ availability or apparent setup quality.
 Delayed data alone is not a blocker. When delay matters, narrow the valid
 public-reference entry zone and require current platform translation before a
 ticket.
+
+For `HYBRID_M5`, however, a one-bar-or-greater M5 delay is a named missing
+market condition. Preserve coherent H1/M15 direction, but do not label the
+entry ready until current user-provided data confirms the completed trigger.
 
 If the user supplies a current XTB text quote or screenshot, its quote basis
 controls all ticket prices. If reconciliation is not yet defensible, preserve
@@ -170,6 +187,11 @@ net reward-to-risk near `2.0`. Return `NO_TRADE` below `1.5`. From `1.5`
 through `1.79`, mark the plan reduced-risk-only; normal risk requires at least
 `1.8`. Do not stretch a target through major resistance/support only to improve
 the ratio.
+
+For unvalidated `HYBRID_M5`, also require spread no greater than `0.20` of
+entry-to-stop distance, total estimated execution cost no greater than
+`0.25R`, and risk no greater than `0.25%` of confirmed equity. Missing spread,
+slippage, fee, or financing inputs makes the ticket partial, never zero-cost.
 
 Keep quantity null until `$portfolio-risk-manager` receives sufficient sizing
 inputs. Missing sizing inputs do not downgrade a `READY_NOW` directional

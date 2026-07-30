@@ -48,6 +48,9 @@ Record:
 - entry trigger/zone, stop-loss, invalidation, targets/exits, expiry, and cancel conditions;
 - reward-to-risk, cost assumptions, indicative quantity or null;
 - user verification requirements.
+- entry-timing mode, timeframe roles, trigger-bar completion time/source,
+  current-quote age, H1/M15 alignment, spread-to-stop, total-cost-R,
+  break-even win rate, and validation status when applicable.
 
 Record `NO_TRADE` and `WAIT_FOR_DATA` cases to reduce selection bias.
 Record baseline scans as one compact `SCAN_REFRESH` event and the ranked
@@ -85,6 +88,8 @@ Separate:
 - manual execution deviation;
 - cost/slippage effect when supplied;
 - adherence to stop, target, expiry, and cancel rules.
+- for `HYBRID_M5`, false-trigger versus late-entry behavior, trigger-to-fill
+  latency, and MFE/MAE when the user or test artifact supplies enough data.
 
 If a reported broker trigger, fill, or stop cannot be reconciled with the
 public-reference price path, record
@@ -112,6 +117,9 @@ session, source, and delay. Report after-known-cost expectancy, win/loss
 distribution, drawdown, realized R, adherence, skipped plans, stale-data rate,
 missing-report rate, READY_NOW frequency, candidate-to-ticket conversion, and
 qualified setups missed because platform translation arrived too late.
+
+Compare `HYBRID_M5` with the `M15` baseline separately; never pool the two
+entry modes when judging whether the lower timeframe improved profitability.
 
 Label small samples and unvalidated discretionary plans clearly. Route systematic drift back to `$strategy-validation` when that optional workflow is in use.
 

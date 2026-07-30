@@ -2,7 +2,7 @@
 
 ```yaml
 broker_snapshot:
-  schema_version: "2.2"
+  schema_version: "2.3"
   snapshot_id: null
   parent_snapshot_id: null
   snapshot_kind: FULL_SESSION | DELTA_UPDATE
@@ -66,6 +66,23 @@ broker_snapshot:
     stated_delay_seconds: null
     market_status: null
     halted: null
+    received_at_vn: null
+    age_seconds_at_check: null
+  chart_snapshots:
+    - timeframe: null
+      latest_completed_bar:
+        open_time: null
+        close_time: null
+        open: null
+        high: null
+        low: null
+        close: null
+        completion_confirmed: null
+      current_bar:
+        open_time: null
+        in_progress: null
+        countdown_seconds: null
+      captured_at_vn: null
   ticket_ui:
     market_tab_supported: null
     stop_limit_tab_supported: null
@@ -138,3 +155,7 @@ broker_snapshot:
 - For `user-cfd-usd-2000-v1`, use USD 40 maximum aggregate open risk, USD 30
   maximum correlated U.S.-equity risk, USD 40 daily loss, and USD 100 weekly
   loss only after activation.
+- For a `HYBRID_M5` ticket, keep readiness false when the current quote receipt
+  time or latest completed M5 close time is missing/stale under the active
+  timing profile. Visible in-progress candle state cannot substitute for a
+  completed trigger.

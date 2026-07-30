@@ -10,6 +10,10 @@ description: Turn a non-crypto trading hypothesis into a complete, versioned, ma
 Translate a supported non-crypto hypothesis into deterministic rules that another agent can implement and validate without discretionary gap-filling. A new specification is `RESEARCH_ONLY` until `$strategy-validation` approves it. Do not block a separate one-off `UNVALIDATED_DISCRETIONARY` manual advisory merely because no specification exists.
 
 Read [references/strategy-spec-schema.md](references/strategy-spec-schema.md) before writing a specification.
+Use
+[references/hybrid-m5-entry-research-v1.yaml](references/hybrid-m5-entry-research-v1.yaml)
+as the current research profile when the hypothesis is H1/M15 context with M5
+entry timing.
 
 ## Specification Workflow
 
@@ -40,6 +44,8 @@ Specify:
 - corporate-action adjustment or futures contract/roll method;
 - event, fundamental, cross-market, borrow, funding, and venue data when used;
 - missing, stale, contradictory, delayed, revised, and abnormal-data behavior.
+- distinct timeframe roles for regime, setup, and trigger; do not describe all
+  timeframes as interchangeable confirmation.
 
 Every public decision field must map to `$market-data-acquisition`. Treat `$broker-account-snapshot` as an optional source only when the user explicitly wants account-aware sizing.
 
@@ -55,6 +61,10 @@ Define `READY_NOW`, `NEAR_READY`, and `REJECT` mechanically. Measure candidate
 generation separately from platform ticket translation so missing broker data
 does not masquerade as lack of market opportunity.
 
+For a lower-timeframe trigger, define current-quote validity, trigger
+invalidation, maximum trigger age, spread-to-stop, total-cost-R, and what
+happens when the public trigger feed is delayed by one full bar.
+
 Specify precedence when multiple rules conflict. Do not use undefined terms such as "strong trend", "good volume", "important support", or "high confidence".
 
 ### 4. Define Costs and Execution Assumptions
@@ -67,6 +77,10 @@ monitors, or pre-trigger pending orders; include Stop/Limit only when the user
 explicitly requests it or the validated strategy requires it.
 
 Keep position sizing as an interface to `$portfolio-risk-manager`; do not embed martingale, averaging down, or unbounded risk.
+
+Any new lower-timeframe mode begins `RESEARCH_ONLY` with a conservative risk
+cap. It may increase opportunity frequency, but its after-cost expectancy must
+be compared with the frozen higher-timeframe baseline before promotion.
 
 ### 5. Predeclare Evaluation Gates
 

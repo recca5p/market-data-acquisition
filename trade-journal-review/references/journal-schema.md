@@ -2,7 +2,7 @@
 
 ```yaml
 journal_event:
-  schema_version: "2.1"
+  schema_version: "2.2"
   journal_event_id: null
   event_type: SESSION_STATE | SCAN_REFRESH | CANDIDATE_PROMOTED | ACQUISITION | DECISION | RISK_PLAN | MANUAL_TICKET_CHECK | NO_TRADE | WAIT_FOR_DATA | USER_SKIPPED | USER_ENTERED | USER_UPDATED_POSITION | USER_EXITED | USER_OUTCOME_REPORTED | BASIS_INCIDENT | REVIEW | CORRECTION
   occurred_at_source: null
@@ -44,6 +44,16 @@ journal_event:
 frozen_manual_plan:
   decision: LONG | SHORT | NO_TRADE | WAIT_FOR_DATA
   framework_status: VALIDATED_SYSTEMATIC | UNVALIDATED_DISCRETIONARY
+  strategy_validation_status: REJECTED | RESEARCH_ONLY | FORWARD_OBSERVATION | SUSPENDED | ADVISORY_VALIDATED
+  entry_timing_mode: M15 | HYBRID_M5
+  timeframe_roles:
+    regime: H1
+    setup: M15
+    trigger: M15 | M5
+  trigger_bar_completed_at_vn: null
+  trigger_data_source: PUBLIC_SOURCE | USER_PROVIDED_REALTIME | null
+  current_quote_age_seconds: null
+  higher_timeframe_alignment_confirmed: null
   observed_public_price: null
   entry_trigger_or_zone: null
   stop_loss: null
@@ -53,6 +63,9 @@ frozen_manual_plan:
   cancel_conditions: []
   gross_reward_risk: null
   estimated_net_reward_risk: null
+  spread_to_stop_fraction: null
+  total_cost_r: null
+  break_even_win_rate: null
   indicative_quantity: null
   limitations: []
 ```
@@ -74,6 +87,10 @@ user_reported_outcome:
   gross_pnl: null
   net_pnl: null
   realized_r_multiple: null
+  maximum_adverse_excursion_r: null
+  maximum_favorable_excursion_r: null
+  trigger_to_entry_latency_seconds: null
+  false_trigger: null
   exit_reason: STOP | TARGET | MANUAL | EXPIRY | OTHER | null
   notes: null
   missing_fields: []

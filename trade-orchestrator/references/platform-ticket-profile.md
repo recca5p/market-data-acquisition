@@ -54,6 +54,12 @@ verified quote lies inside the valid entry zone. Do not create alerts,
 recurring monitors, or pre-trigger pending orders. Use Stop/Limit only when the
 user explicitly asks for it or a validated strategy requires it.
 
+For `HYBRID_M5`, also require aligned H1/M15 context, a completed M5 trigger
+whose close time is current enough for the profile, and a user-provided quote
+no older than the declared quote-age limit. Reject the ticket when spread is
+more than `0.20` of entry-to-stop distance or when the quote has invalidated
+the M5 trigger.
+
 Translate completed analytical confirmation into a ticket the platform can
 express. A setup that still needs a market trigger is `NEAR_READY`, not a
 ticket. Do not manufacture a pending order merely to avoid waiting.

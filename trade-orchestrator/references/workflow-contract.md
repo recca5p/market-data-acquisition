@@ -27,6 +27,9 @@ START
      -> CURRENT SESSION CONTROLS
      -> PRIOR SESSION STOP FLAGS EXPIRE
   -> BROAD_BASELINE | ACTIVE_SESSION_REFRESH
+  -> ENTRY_TIMING_MODE
+     -> M15: COMPLETED_M15_TRIGGER
+     -> HYBRID_M5: H1_M15_CONTEXT + COMPLETED_M5_TRIGGER
   -> RANK READY_NOW / NEAR_READY / REJECT
   -> DIRECTIONAL_DECISION
      -> PUBLIC DATA UNUSABLE: WAIT_FOR_DATA
@@ -58,6 +61,8 @@ workflow_identity:
   validation_id: null
   journal_reference: null
   session_id: null
+  entry_timing_mode: M15 | HYBRID_M5
+  strategy_validation_status: REJECTED | RESEARCH_ONLY | FORWARD_OBSERVATION | SUSPENDED | ADVISORY_VALIDATED
 ```
 
 Strategy and validation IDs may be null for a one-off discretionary analysis. Instrument basis, source timestamps, and delay labels may not be null.
@@ -78,6 +83,16 @@ workflow_result:
   setup_readiness: READY_NOW | NEAR_READY | REJECT
   execution_state: PLATFORM_TICKET_READY | NEEDS_USER_REALTIME | DIRECTION_ONLY
   framework_status: VALIDATED_SYSTEMATIC | UNVALIDATED_DISCRETIONARY
+  entry_timing:
+    mode: M15 | HYBRID_M5
+    regime_timeframe: H1
+    setup_timeframe: M15
+    trigger_timeframe: M15 | M5
+    higher_timeframe_alignment_confirmed: null
+    trigger_bar_completed: null
+    trigger_bar_completed_at_vn: null
+    trigger_data_state: PUBLIC_COMPLETED | STALE | NEEDS_USER_REALTIME | USER_PROVIDED_REALTIME
+    current_quote_age_seconds: null
   platform_ticket:
     source: USER_PROVIDED_REALTIME | null
     action: MARKET | STOP_LIMIT | REQUEST_USER_REALTIME | DO_NOT_CLICK
@@ -104,6 +119,10 @@ workflow_result:
       - spread
       - quote_time
       - value_per_point_or_pip
+    hybrid_m5_fields_if_needed:
+      - latest_completed_m5_open_time
+      - latest_completed_m5_close_time
+      - latest_completed_m5_ohlc
     sizing_fields_if_needed:
       - equity
       - open_positions
@@ -169,6 +188,12 @@ When a platform quote is absent, a usable public package must not become
 plan, set `execution_state: NEEDS_USER_REALTIME`, and request from the user
 only symbol, bid, ask, spread, quote time, and matching point value needed for
 translation/sizing. Never attempt to obtain these values from XTB.
+
+For `HYBRID_M5`, H1/M15 can make the direction package sufficient while a
+stale M5 trigger keeps the candidate `NEAR_READY`. A public M5 lag of at least
+300 seconds requires `NEEDS_USER_REALTIME` and the promoted candidate's latest
+completed M5 OHLC/time. Only current quote and M5 trigger data may advance it
+to `READY_NOW`.
 
 Session stops and consecutive-loss counts are scoped to `session_id`.
 Unreported or expired proposals from earlier sessions remain missing-report

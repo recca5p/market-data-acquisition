@@ -1,0 +1,172 @@
+strategy_spec:
+  schema_version: "1.2"
+  strategy_id: hybrid-htf-context-m5-entry
+  version: "0.1.0"
+  status: RESEARCH_ONLY
+  change_reason: >
+    Preserve H1/M15 directional quality while testing whether a completed M5
+    trigger improves entry timing and qualified-opportunity throughput.
+  hypothesis:
+    rationale: >
+      H1 and M15 alignment filters direction; a completed M5 confirmation can
+      reduce late M15 entries without treating M5 noise as a standalone edge.
+    expected_failure_conditions:
+      - M5 spread and slippage consume too much of the shorter stop.
+      - Additional M5 triggers raise trade count but reduce after-cost expectancy.
+      - Public M5 latency makes the trigger unavailable at the executable quote.
+  scope:
+    asset_classes:
+      - FX
+      - EQUITY_INDEX
+      - RATES
+      - VOLATILITY
+      - METALS
+      - ENERGY
+      - AGRICULTURE
+      - LIVESTOCK
+      - EMISSIONS
+      - LIQUID_STOCK
+    instruments: []
+    instrument_basis: [PUBLIC_REFERENCE_THEN_USER_VERIFIED_CFD]
+    venue_or_reference: [PUBLIC_IDENTIFIED_SOURCE, USER_PROVIDED_XTB]
+    sessions: [ASIA, EUROPE, US_PREOPEN, US_CASH, OVERNIGHT]
+    decision_horizon: INTRADAY
+    holding_horizon: INTRADAY
+    entry_timing_mode: HYBRID_M5
+    timeframe_roles:
+      regime: H1
+      setup: M15
+      trigger: M5
+  data_contract:
+    required_timeframes: [H1, M15, M5]
+    completed_bar_policy: COMPLETED_BARS_ONLY
+    maximum_quote_age_seconds: 30
+    maximum_completed_bar_lag_seconds:
+      H1: 3900
+      M15: 1200
+      M5: 300
+    public_m5_lag_action: NEEDS_USER_REALTIME
+    current_quote_source: USER_PROVIDED_REALTIME
+    missing_or_stale_action: >
+      Keep coherent H1/M15 direction as NEAR_READY, but never emit READY_NOW
+      when the completed M5 trigger or current quote is stale or absent.
+  parameters:
+    ema_fast_length: 20
+    ema_slow_length: 50
+    atr_length: 14
+    maximum_m15_setup_extension_atr: 0.75
+    maximum_current_quote_extension_from_m5_trigger_atr: 0.75
+    maximum_spread_to_stop_fraction: 0.20
+    maximum_total_cost_r: 0.25
+    reject_below_estimated_net_reward_risk: 1.50
+    normal_risk_from_estimated_net_reward_risk: 1.80
+    preferred_estimated_net_reward_risk: 2.00
+    research_risk_cap_fraction: 0.0025
+    maximum_trades_per_session: 3
+    cooldown_after_reported_stop_completed_m15_bars: 1
+    high_impact_event_block_minutes_before: 30
+    high_impact_event_block_minutes_after: 15
+  rules:
+    regime:
+      - id: REGIME_LONG
+        expression: H1.close > H1.EMA20 > H1.EMA50
+      - id: REGIME_SHORT
+        expression: H1.close < H1.EMA20 < H1.EMA50
+    setup:
+      - id: SETUP_LONG
+        expression: >
+          REGIME_LONG and M15.close > M15.EMA20 > M15.EMA50 and
+          abs(M15.close - M15.EMA20) / M15.ATR14 <= 0.75
+      - id: SETUP_SHORT
+        expression: >
+          REGIME_SHORT and M15.close < M15.EMA20 < M15.EMA50 and
+          abs(M15.close - M15.EMA20) / M15.ATR14 <= 0.75
+    trigger:
+      - id: TRIGGER_LONG
+        expression: >
+          completed(M5[0]) and SETUP_LONG and M5[0].close > M5[1].high and
+          M5[0].close > M5[0].open
+      - id: TRIGGER_SHORT
+        expression: >
+          completed(M5[0]) and SETUP_SHORT and M5[0].close < M5[1].low and
+          M5[0].close < M5[0].open
+    entry:
+      - id: ENTRY_CURRENT_QUOTE
+        expression: >
+          Use only the current user-provided executable-side quote while it is
+          within 0.75 M5 ATR of the completed trigger close and has not crossed
+          the trigger-bar invalidation.
+    initial_stop:
+      - id: STOP_LONG
+        expression: below min(M5_trigger.low, M15_setup_invalidation)
+      - id: STOP_SHORT
+        expression: above max(M5_trigger.high, M15_setup_invalidation)
+    no_trade:
+      - id: NO_COUNTERTREND
+        expression: H1 and M15 direction must agree.
+      - id: NO_STALE_TRIGGER
+        expression: M5 trigger lag >= 300 seconds or quote age > 30 seconds.
+      - id: NO_EXPENSIVE_STOP
+        expression: spread / abs(entry - stop) > 0.20.
+      - id: NO_HIGH_TOTAL_COST
+        expression: total_execution_cost / gross_price_risk > 0.25.
+      - id: NO_LOW_NET_RR
+        expression: estimated_net_reward_risk < 1.50.
+      - id: NO_EVENT_WINDOW
+        expression: >
+          A relevant high-impact event is within 30 minutes before or 15
+          minutes after the intended entry.
+      - id: NO_SESSION_OVERTRADING
+        expression: maximum_trades_per_session reached.
+    readiness:
+      ready_now:
+        - H1 and M15 agree.
+        - A completed M5 trigger exists.
+        - Current user-provided quote preserves trigger integrity and entry zone.
+        - Spread, total-cost-R, net-RR, session, and event gates pass.
+      near_ready:
+        - H1 and M15 agree but exactly one current M5 market condition is absent.
+        - Public M5 is delayed by at least one bar and needs user-provided realtime.
+      reject:
+        - H1 and M15 conflict.
+        - Trigger integrity, cost, reward/risk, event, or session gate fails.
+  execution_assumptions:
+    allowed_order_types: [MARKET]
+    default_translation_mode: REQUEST_USER_REALTIME_THEN_MARKET
+    autonomous_alerts_allowed: false
+    pretrigger_pending_orders_allowed: false
+    fill_model: NEXT_ELIGIBLE_EXECUTABLE_QUOTE
+    latency_model: STRESS_0_TO_2_M5_BARS
+    spread_model: USER_PROVIDED_AND_HISTORICAL_STRESS
+    slippage_model: REQUIRED_NON_NULL_INPUT_AND_STRESS
+    fees: REQUIRED_NON_NULL_INPUT
+    financing: REQUIRED_NON_NULL_INPUT
+  sizing_interface:
+    risk_policy_required: true
+    research_risk_cap_fraction: 0.0025
+    maximum_unbounded_loss_allowed: false
+    averaging_down_allowed: false
+  predeclared_validation_gates:
+    baseline_entry_timing_mode: M15
+    compare_candidate_frequency: true
+    compare_after_cost_expectancy: true
+    compare_false_trigger_rate: true
+    compare_maximum_adverse_excursion: true
+    compare_platform_translation_miss_rate: true
+    robustness_requirements:
+      - spread stress
+      - slippage stress
+      - latency stress from zero to two M5 bars
+      - parameter perturbation
+      - instrument and session breakdown
+    paper_forward_duration: REQUIRED_BEFORE_ADVISORY_VALIDATED
+  limitations:
+    - This profile is not evidence that M5 improves profitability.
+    - Public M5 data delayed by one completed bar cannot authorize READY_NOW.
+    - Exact XTB quote, spread, point value, fees, and account state come only from the user.
+  forbidden_discretionary_overrides:
+    - Do not use M5 against H1/M15 direction.
+    - Do not assume missing costs are zero.
+    - Do not widen the stop or stretch the target to pass a gate.
+    - Do not exceed the research risk cap before validation.
+    - Do not create autonomous alerts or pre-trigger pending orders.

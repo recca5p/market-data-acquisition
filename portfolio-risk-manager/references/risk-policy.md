@@ -2,7 +2,7 @@
 
 ```yaml
 manual_risk_profile:
-  schema_version: "2.3"
+  schema_version: "2.4"
   profile_id: null
   base_currency: null
   profile_status: PLANNED_PENDING_BROKER_CONFIRMATION | ACTIVE_CONFIRMED
@@ -20,6 +20,8 @@ manual_risk_profile:
   confirmed_equity_at: null
   minimum_reward_risk: null
   preferred_reward_risk: null
+  entry_timing_mode: M15 | HYBRID_M5
+  strategy_validation_status: REJECTED | RESEARCH_ONLY | FORWARD_OBSERVATION | SUSPENDED | ADVISORY_VALIDATED
   account_inputs:
     equity: null
     explicit_risk_amount: null
@@ -54,6 +56,11 @@ manual_risk_profile:
     estimated_round_trip_fee_per_unit: null
     estimated_slippage_per_unit: null
     financing_and_borrow_buffer_per_unit: null
+    spread_included_in_entry_exit_geometry: null
+    maximum_spread_to_stop_fraction: null
+    maximum_total_cost_r: null
+  research_limits:
+    research_risk_cap_fraction: null
   optional_limits:
     maximum_notional: null
     maximum_quantity: null
@@ -82,6 +89,10 @@ manual_risk_plan:
   entry_for_calculation: null
   stop_loss: null
   stop_distance: null
+  spread_to_stop_fraction: null
+  total_cost_per_unit: null
+  total_cost_r: null
+  break_even_win_rate: null
   invalidation: null
   targets:
     - price: null
@@ -131,6 +142,18 @@ quantity = floor_to_step(risk_budget / total_risk_per_unit)
 ```
 
 Use the formula only when all terms are known. Never infer missing account or instrument fields from an unrelated public reference.
+
+For `HYBRID_M5`, every cost term is required and must be explicitly supplied,
+including zero when a real cost is truly absent. Require current platform
+spread and declare whether bid/ask entry/exit geometry already includes it so
+spread is neither omitted nor double-counted. Reject
+`spread / abs(entry - stop) > 0.20` or
+`total_execution_cost / gross_price_risk > 0.25`.
+
+Until `strategy_validation_status: ADVISORY_VALIDATED`, add
+`equity * 0.0025` to the risk-budget minimum and reject any larger requested
+risk fraction for `HYBRID_M5`. Confirmed equity is required; an explicit
+currency budget alone cannot prove compliance with a percentage cap.
 
 Never use the formula for a cryptoasset or an instrument whose primary
 underlying/reference is a cryptoasset. Return `NO_TRADE`,

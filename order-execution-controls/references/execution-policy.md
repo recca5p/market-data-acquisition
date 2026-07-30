@@ -2,11 +2,13 @@
 
 ```yaml
 manual_trade_card:
-  schema_version: "2.2"
+  schema_version: "2.3"
   decision_id: null
   risk_plan_id: null
   session_id: null
   execution_state: PLATFORM_TICKET_READY
+  entry_timing_mode: M15 | HYBRID_M5
+  strategy_validation_status: REJECTED | RESEARCH_ONLY | FORWARD_OBSERVATION | SUSPENDED | ADVISORY_VALIDATED
   realtime_execution_data_source: USER_PROVIDED_REALTIME
   xtb_interaction_allowed: false
   instrument: null
@@ -24,6 +26,12 @@ manual_trade_card:
   platform_bid: null
   platform_ask: null
   platform_quote_observed_at_epoch_ms: null
+  maximum_quote_age_seconds: null
+  trigger_timeframe: M15 | M5
+  trigger_bar_completed: null
+  trigger_bar_completed_at_epoch_ms: null
+  maximum_trigger_bar_age_seconds: null
+  higher_timeframe_alignment_confirmed: null
   valid_market_entry_low: null
   valid_market_entry_high: null
   entry_price_for_calculation: null
@@ -39,7 +47,9 @@ manual_trade_card:
   optional_quantity_step: null
   platform_pip_or_point_value: null
   platform_spread: null
+  maximum_spread_to_stop_fraction: null
   estimated_cost_per_unit: null
+  maximum_total_cost_r: null
   minimum_reward_risk: null
   maximum_reference_deviation_fraction: null
   account_profile_id: null
@@ -49,6 +59,7 @@ manual_trade_card:
   estimated_net_profit_at_target: null
   existing_open_risk_amount: null
   maximum_trade_risk_fraction: null
+  research_risk_cap_fraction: null
   maximum_portfolio_heat_fraction: null
 ```
 
@@ -58,6 +69,8 @@ manual_ticket_check:
   checked_at_epoch_ms: null
   gross_reward_risk_by_target: []
   estimated_net_reward_risk_by_target: []
+  break_even_win_rate_by_target: []
+  total_cost_r: null
   account_risk:
     confirmed_equity: null
     estimated_loss_at_stop: null
@@ -84,6 +97,17 @@ manual_ticket_check:
 
 Unknown tick, quantity step, costs, or account risk produces a warning, not an invented value.
 
+Exception: for `HYBRID_M5`, unknown costs, platform spread, completed M5
+trigger time, quote time, or H1/M15 alignment are validation errors. Reject
+spread-to-stop above `0.20`, total-cost-R above `0.25`, and any research ticket
+risk cap above `0.0025` until `ADVISORY_VALIDATED`.
+
+`strategy_validation_status: REJECTED | SUSPENDED` always produces
+`MANUAL_TICKET_INVALID`.
+
+An unvalidated `HYBRID_M5` ticket requires confirmed equity, estimated loss,
+and `maximum_trade_risk_fraction` so the `0.25%` cap is enforceable.
+
 A matching active basis incident lock for the same account alias, broker
 symbol, and contract always produces `MANUAL_TICKET_INVALID` with
 `PLATFORM_BASIS_RECONCILIATION_REQUIRED` and an empty platform ticket. An
@@ -97,6 +121,9 @@ A cryptoasset or instrument whose primary underlying/reference is a
 cryptoasset always produces `MANUAL_TICKET_INVALID` with
 `UNSUPPORTED_ASSET_CLASS_CRYPTO`. Do not populate a user-editable platform
 ticket.
+
+Any `MANUAL_TICKET_INVALID` result must return an empty user-editable
+`platform_ticket`; diagnostics may retain the frozen analytical inputs.
 
 Reject a pending ticket whose trigger is on the wrong side of the supplied bid/ask. If platform bid/ask is absent, preserve the ticket as a warning and require the user to reconfirm it manually.
 

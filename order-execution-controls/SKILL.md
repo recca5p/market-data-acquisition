@@ -26,6 +26,12 @@ basis-incident status, asset class, instrument/reference basis, side, entry
 price used for calculation, stop-loss, at least one target, current evaluation
 time, and signal expiry.
 
+For `HYBRID_M5`, additionally require strategy validation status, confirmed
+H1/M15 alignment, `trigger_timeframe: M5`, completed-trigger timestamp, maximum
+trigger age, current user-provided quote timestamp, maximum quote age,
+platform spread, maximum spread-to-stop fraction, total estimated cost, total
+cost-R limit, and research risk cap.
+
 Accept optional order mode/type, broker symbol, platform bid/ask, platform quote time, valid Market-entry zone, tick size, quantity, quantity source, quantity step, pip/point value, reference price, maximum price deviation, estimated costs, account-profile status, confirmed equity, estimated monetary loss/profit, existing open risk, risk caps, and minimum reward-to-risk.
 
 ### 2. Check Direction and Levels
@@ -64,6 +70,11 @@ Reject a Market ticket when its executable side has moved outside the supplied
 valid-entry zone. Reject a ticket below its supplied minimum estimated net
 reward-to-risk.
 
+For `HYBRID_M5`, reject a stale quote, stale or incomplete M5 trigger,
+unconfirmed H1/M15 alignment, spread-to-stop above `0.20`, total execution cost
+above `0.25R`, or an unvalidated risk cap above `0.25%`. Missing costs are an
+error because net reward-to-risk cannot be checked safely.
+
 When the account-risk fields are supplied, reject a ticket whose estimated loss
 exceeds the single-trade cap or whose existing plus proposed loss exceeds the
 portfolio-heat cap. Do not accept `RISK_CALCULATED` quantity for a planned
@@ -93,4 +104,5 @@ Do not produce broker, acknowledgement, fill, or execution statuses.
 Return the user-editable platform ticket block first, followed by frozen
 levels, computed reward-to-risk, confirmed equity status, estimated monetary
 loss/net profit, risk fraction, remaining heat, optional quantity checks,
-errors, warnings, public-data delay, and exact fields the user must verify.
+spread-to-stop fraction, total-cost-R, break-even win rate, errors, warnings,
+public-data delay, and exact fields the user must verify.

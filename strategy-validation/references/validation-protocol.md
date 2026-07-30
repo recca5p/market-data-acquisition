@@ -11,6 +11,9 @@ strategy_spec:
   instrument_basis: []
   sessions: []
   decision_horizon: null
+  entry_timing_mode: M15 | HYBRID_M5
+  baseline_entry_timing_mode: null
+  timeframe_roles: {}
   required_timeframes: []
   required_data_fields: []
   freshness_policy: {}
@@ -76,6 +79,14 @@ validation:
     platform_translation_miss_rate: null
     no_trade_market_rule_fraction: null
     no_trade_data_or_workflow_blocker_fraction: null
+    false_trigger_rate: null
+    average_spread_to_stop_fraction: null
+    p95_spread_to_stop_fraction: null
+    average_total_cost_r: null
+    break_even_win_rate: null
+    maximum_adverse_excursion_r: null
+    maximum_favorable_excursion_r: null
+    incremental_after_cost_expectancy_vs_baseline: null
   regime_results: []
   stress_results: []
   probability_calibration: null
@@ -95,6 +106,11 @@ validation:
 - Evaluate opportunity throughput and candidate-to-ticket conversion against
   predeclared gates. Do not improve these metrics by weakening setup quality,
   reward-to-risk, session-loss, or asset-class rules.
+- For `HYBRID_M5`, compare against the frozen `M15` baseline on identical
+  scope. More signals cannot pass the gate when net expectancy, drawdown, tail
+  loss, or translation reliability deteriorates beyond predeclared limits.
+- Stress bid/ask spread, slippage, and decision latency through at least two M5
+  bars. Model entry eligibility only after the trigger bar completes.
 - Treat changes to logic, data, parameters, universe, instrument basis, costs, or execution as a new version.
 - Suspend on drift, drawdown, data-quality, execution, or operational thresholds defined in the artifact.
 - Validation outputs may define review thresholds, but must not create
