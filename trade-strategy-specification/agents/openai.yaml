@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trade Strategy Specification"
+  short_description: "Specify repeatable edge and setup throughput"
+  default_prompt: "Use $trade-strategy-specification to formalize a public-data non-crypto strategy with READY_NOW rules and throughput gates; never assume XTB access, autonomous alerts, or pre-trigger pending orders."

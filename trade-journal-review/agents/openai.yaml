@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manual Trade Journal"
+  short_description: "Track setup throughput and session controls"
+  default_prompt: "Use $trade-journal-review to record public scans and material candidate, ticket, and user-result changes; record current XTB fields only as USER_PROVIDED_REALTIME and never access XTB."

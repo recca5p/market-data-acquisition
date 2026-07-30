@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trade Decision Guardrails"
+  short_description: "Promote valid ready-now directional plans"
+  default_prompt: "Use $trade-decision-guardrails to promote a READY_NOW public-data setup into a LONG or SHORT reference plan; never access XTB, and return NEEDS_USER_REALTIME when exact XTB values must be requested from the user."

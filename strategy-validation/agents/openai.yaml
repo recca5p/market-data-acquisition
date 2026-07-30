@@ -1,0 +1,4 @@
+interface:
+  display_name: "Strategy Validation"
+  short_description: "Validate edge, frequency, and conversion"
+  default_prompt: "Use $strategy-validation to test a public-data non-crypto strategy for edge, drawdown, opportunity frequency, READY_NOW rate, and candidate-to-ticket conversion; never assume XTB access."

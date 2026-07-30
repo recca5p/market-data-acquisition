@@ -1,0 +1,6 @@
+interface:
+  display_name: "Manual Trade Card Check"
+  short_description: "Validate a user-translated manual ticket"
+  default_prompt: "Use $order-execution-controls only after a READY_NOW plan has been translated using current XTB values supplied by the user; REQUEST_USER_REALTIME is an upstream action, not an invalid ticket."
+policy:
+  allow_implicit_invocation: false

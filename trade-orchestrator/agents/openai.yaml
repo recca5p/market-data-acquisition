@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manual Trade Orchestrator"
+  short_description: "Proactively promote the best ready-now setup"
+  default_prompt: "Use $trade-orchestrator to scan with Google, Investing.com, and public sources, promote one READY_NOW setup plus two backups, then ask the user once for the current XTB values needed for manual ticket translation; never access XTB."
