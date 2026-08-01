@@ -10,20 +10,21 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+SKILLS_ROOT = REPOSITORY_ROOT / ".agents" / "skills"
 CALCULATOR = (
-    REPOSITORY_ROOT
+    SKILLS_ROOT
     / "portfolio-risk-manager"
     / "scripts"
     / "calculate_position_size.py"
 )
 VALIDATOR = (
-    REPOSITORY_ROOT
+    SKILLS_ROOT
     / "order-execution-controls"
     / "scripts"
     / "validate_order.py"
 )
 SCANNER = (
-    REPOSITORY_ROOT
+    SKILLS_ROOT
     / "market-data-acquisition"
     / "scripts"
     / "scan_public_markets.mjs"

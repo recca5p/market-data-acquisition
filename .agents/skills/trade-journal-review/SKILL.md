@@ -30,6 +30,14 @@ When the workspace contains `trade-history/manual-advisory-history.jsonl`,
 append one compact JSON object per line. Never rewrite, reorder, or delete prior
 events. Keep unknown actual prices, quantity, costs, and P&L null.
 
+For every open-ended `BROAD_BASELINE` or `ACTIVE_SESSION_REFRESH`, append one
+compact immutable `payload.scan_coverage_audit` projection from the canonical
+acquisition audit. Preserve scan mode, ICT/session state, baseline reuse ID and
+age, exact refreshed fields, totals, every required bucket outcome, and each
+material unpromoted/rejected/skipped reason code plus plain explanation. Do
+not create one journal event per unchanged symbol. Journal schema 2.3 is
+additive: existing 2.2 events remain valid and must not be rewritten.
+
 Do not append another identical `WAIT_FOR_DATA` or blocker event when its
 instrument, session, missing fields, and source state have not changed. Record
 a new event only for a material refresh, candidate promotion/demotion, decision
@@ -55,7 +63,10 @@ Record:
 Record `NO_TRADE` and `WAIT_FOR_DATA` cases to reduce selection bias.
 Record baseline scans as one compact `SCAN_REFRESH` event and the ranked
 shortlist as `CANDIDATE_PROMOTED` events. Do not create one blocker record per
-unchanged symbol.
+unchanged symbol. The compact scan audit must visibly retain `ALUMINIUM` and
+`EMISS` configuration gaps, and every refresh non-core bucket marked
+`NOT_IN_REFRESH_SCOPE`; absent XTB/broker/account data is never a scan-audit
+skip reason.
 
 ### 2. Await the User Report
 
@@ -126,7 +137,8 @@ Label small samples and unvalidated discretionary plans clearly. Route systemati
 ## Output
 
 For a scan or public proposal, return its immutable journal ID and
-`SCAN_RECORDED` or `CANDIDATE_PROMOTED`. For a translated ticket, return
-`AWAITING_USER_REPORT`. For a user report, return recorded facts, missing
+`SCAN_RECORDED` or `CANDIDATE_PROMOTED`; for an open-ended scan, also confirm
+that the compact immutable scan audit was recorded. For a translated ticket,
+return `AWAITING_USER_REPORT`. For a user report, return recorded facts, missing
 fields, computed outcome metrics that are supportable, deviations from the
 frozen plan, and the next review action.

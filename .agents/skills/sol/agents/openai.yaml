@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sol"
+  short_description: "Decide, design, and review complex work"
+  default_prompt: "Use $sol to resolve ambiguity, design the architecture and contracts, make the decision, and perform the final review with security and concurrency controls."

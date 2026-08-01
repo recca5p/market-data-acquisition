@@ -1,9 +1,31 @@
 # Trading Skills Bundle
 
-This repository contains a Codex skills bundle for manual, non-crypto trading research and risk planning.
+This repository contains a project-scoped Codex multi-agent and skills bundle
+for manual, non-crypto trading research, implementation, and risk planning.
+
+## Codex Layout
+
+```text
+AGENTS.md                         Sol behavior for the primary thread
+.codex/config.toml               Project model and multi-agent settings
+.codex/agents/terra.toml         Workspace-write implementation subagent
+.codex/agents/luna.toml          Read-only market-data subagent
+.agents/skills/<name>/SKILL.md   Repo-scoped skills discovered by Codex
+```
+
+The project must be trusted for Codex to load `.codex/config.toml`. Start a new
+Codex session after changing agent configuration so the instruction and agent
+layers are reloaded.
+
+Reasoning profile: Sol uses `ultra`; Terra and Luna use `max`. Sol owns
+delegation, while Terra and Luna keep a flat hierarchy and return escalations
+to Sol.
 
 ## Skills
 
+- `sol` — decision, architecture, planning, and final review
+- `terra` — implementation, debugging, refactoring, and integration
+- `luna` — permitted public market-data acquisition and normalization
 - `broker-account-snapshot`
 - `market-data-acquisition`
 - `order-execution-controls`
@@ -14,7 +36,23 @@ This repository contains a Codex skills bundle for manual, non-crypto trading re
 - `trade-orchestrator`
 - `trade-strategy-specification`
 
-Each skill directory contains a `SKILL.md` file and may include `references/`, `agents/`, or `scripts/` used by that skill.
+## Agent Roles
+
+```text
+Luna (subagent) -> public market data and normalized acquisition package
+  -> Sol (primary thread) -> architecture, guardrails, decision, and plan
+  -> Terra (subagent) -> implementation, integration, tests, and migrations
+  -> Sol (primary thread) -> acceptance review and user-facing handoff
+```
+
+Use `$luna` when the task is primarily market-data collection, `$terra` when
+the task is implementation or integration, and `$sol` when the task requires
+reasoning, a decision, a plan, or a final review. The existing domain skills
+remain the source of truth for acquisition, decision guardrails, risk, ticket
+checks, strategy validation, and journaling.
+
+Each skill lives under `.agents/skills/` and contains a `SKILL.md` file. A skill
+may also include `references/`, `agents/`, or `scripts/` used by that workflow.
 
 ## Hybrid M5 Research Mode
 
@@ -35,4 +73,6 @@ python -m unittest discover -s tests -v
 
 ## Repository Scope
 
-The repository tracks reusable skill source files only. Runtime artifacts such as temporary PDFs/images, Python caches, and local trade journal history are intentionally ignored.
+The repository tracks reusable skill source files only. Runtime artifacts such
+as temporary PDFs/images, Python caches, and local trade journal history are
+intentionally ignored.

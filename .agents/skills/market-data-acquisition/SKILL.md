@@ -66,17 +66,29 @@ reference from each currently open or relevant bucket:
 - industrial/base metals, including copper and aluminum when usable;
 - energy;
 - agriculture and soft commodities;
-- livestock and environmental markets;
+- livestock;
+- emissions/environmental markets;
 - fertilizer/chemical exposures;
 - liquid single stocks.
 
 Skip a bucket only when its market is closed, its public data is unusable, or
-no reasonably liquid, identifiable instrument exists; state the reason. The
-fertilizer bucket may use liquid listed producers or an exchange-listed
-instrument as the tradable candidate while using fragmented physical
-fertilizer benchmarks only as context. A producer stock, ETF, future, cash
-benchmark, and broker CFD are different instruments and must never share
+no reasonably liquid, identifiable instrument exists; record the matching
+stable `coverage_audit` reason code and a plain explanation. A missing XTB
+symbol, quote, spread, account value, or point value is never a market-skip
+reason. The fertilizer bucket may use liquid listed producers or an
+exchange-listed instrument as the tradable candidate while using fragmented
+physical fertilizer benchmarks only as context. A producer stock, ETF, future,
+cash benchmark, and broker CFD are different instruments and must never share
 undisclosed price levels.
+
+Create the canonical `coverage_audit` in the acquisition schema for every
+open-ended scan, including all 12 required baseline buckets even if a bucket
+was not scanned. Record totals, attempted/succeeded instrument attempts,
+representative instruments, provider market state and source/time evidence,
+coverage outcome, and every material unpromoted/rejected candidate or skipped
+bucket. Use `NO_CONFIGURED_PUBLIC_REFERENCE` for unconfigured `ALUMINIUM` or
+`EMISS` references; never let an adjacent copper or unrelated environmental
+reference silently count those gaps as covered.
 
 After a broad baseline exists for the current session, an active-session
 refresh may reuse unchanged instrument metadata and official event facts for
@@ -87,7 +99,12 @@ headlines, and event proximity for:
 - the active-session core;
 - any market with a new material catalyst.
 
-Do not repeat a full deep acquisition for every bucket on every refresh.
+Do not repeat a full deep acquisition for every bucket on every refresh. Set
+`coverage_audit.baseline_reuse` with the reused baseline acquisition ID,
+acquired time, age, fields reused, and the exact fields refreshed. For a
+session-core refresh, mark every non-core bucket `NOT_IN_REFRESH_SCOPE`; do not
+describe it as a new full scan. If there is no valid baseline to reuse, say
+`NOT_REUSED` rather than implying one exists.
 
 Use this default liquid core unless a strategy or user request supplies a
 different one:
@@ -277,7 +294,20 @@ Return this order:
 6. `Validation:` stale, missing, contradictory, delayed, or abnormal fields.
 7. `Handoff:` whether the directional package is sufficient and whether exact
    platform translation remains; state that public prices are not executable.
-8. `Journal record:` acquisition ID/reference and source-acquisition summary.
+8. `Coverage audit:` the complete canonical `coverage_audit`, not only the
+   top-N shortlist.
+9. `Journal record:` acquisition ID/reference and source-acquisition summary.
+
+For an open-ended scan that becomes user-visible, default to Vietnamese unless
+the user asks for another language. The actionable plan or `NO_TRADE` outcome
+comes first. Immediately after that block, render the canonical audit under
+the exact Vietnamese headings `ĐÃ KHẢO SÁT` and `SKIP/LOẠI VÀ LÝ DO`. The first
+section must state scan mode, session, ICT time, attempted/succeeded totals,
+all required buckets, representative instruments, provider/session state and
+coverage outcome. The second must list every material unpromoted/rejected
+candidate and skipped or gap bucket with its stable reason code and plain
+explanation. Do not replace these sections with a bare claim that the market
+was scanned.
 
 Do not ask the user for XTB data before public acquisition and candidate
 promotion. When real-time translation is needed, ask once for compact text

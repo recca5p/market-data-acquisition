@@ -16,6 +16,12 @@ Optional:
 The skills have no XTB or broker access. Absence of user-provided real-time or
 account data does not block a public-reference manual advisory.
 
+For every open-ended `BROAD_BASELINE` or `ACTIVE_SESSION_REFRESH`, the
+acquisition package must carry the canonical `coverage_audit` from acquisition
+schema 2.4. It is the only source of breadth-coverage claims in the final
+advisory. Missing XTB/broker/account values remain ticket/sizing limitations
+and may never be used as scan-skip reasons.
+
 ## State Machine
 
 ```text
@@ -27,6 +33,7 @@ START
      -> CURRENT SESSION CONTROLS
      -> PRIOR SESSION STOP FLAGS EXPIRE
   -> BROAD_BASELINE | ACTIVE_SESSION_REFRESH
+  -> COVERAGE_AUDIT
   -> ENTRY_TIMING_MODE
      -> M15: COMPLETED_M15_TRIGGER
      -> HYBRID_M5: H1_M15_CONTEXT + COMPLETED_M5_TRIGGER
@@ -54,6 +61,8 @@ workflow_identity:
   workflow_id: null
   mode: MANUAL_ADVISORY
   acquisition_id: null
+  coverage_audit_version: null
+  baseline_acquisition_id: null
   decision_id: null
   risk_plan_id: null
   strategy_id: null
@@ -155,6 +164,14 @@ workflow_result:
     cancel_conditions: []
     indicative_quantity: null
     public_reference_label: NON_EXECUTABLE_REFERENCE
+  coverage_audit:
+    acquisition_schema_version: "2.4"
+    audit_version: null
+    scan_mode: BROAD_BASELINE | ACTIVE_SESSION_REFRESH | SINGLE_INSTRUMENT | CUSTOM_SYMBOLS | null
+    baseline_reuse: {}
+    totals: {}
+    bucket_rows: []
+    material_unpromoted_or_rejected: []
   user_must_verify: []
   blockers_or_limitations: []
   journal_status: SCAN_RECORDED | CANDIDATE_PROMOTED | AWAITING_USER_REPORT
@@ -203,3 +220,33 @@ For the `user-cfd-usd-2000-v1` profile, keep
 `account_profile_status: PLANNED_PENDING_BROKER_CONFIRMATION` until a fresh
 account snapshot supplied by the user confirms the funded equity. A planned
 deposit cannot populate `confirmed_equity_used`.
+
+## Open-Ended Scan Response Contract
+
+Default the final user-facing market advisory to Vietnamese unless the user
+asks otherwise. Show the actionable plan or `NO_TRADE` conclusion first. For
+an open-ended `BROAD_BASELINE` or `ACTIVE_SESSION_REFRESH`, immediately follow
+it with these sections populated from `workflow_result.coverage_audit`:
+
+```text
+ĐÃ KHẢO SÁT
+<scan mode; session and ICT time; attempted/succeeded/failed totals; all 12
+required buckets; representative instruments; provider/session state and
+status source/time evidence; coverage outcome; baseline ID/age and exact
+reused/refreshed fields>
+
+SKIP/LOẠI VÀ LÝ DO
+<each skipped/gap bucket and material NOT_PROMOTED/REJECTED candidate; stable
+reason code(s); plain explanation>
+```
+
+The 12 required buckets are FX, equity indices, rates/sovereign bonds,
+volatility, precious metals, industrial/base metals, energy,
+agriculture/softs, livestock, emissions/environmental,
+fertilizer/chemicals, and liquid stocks. A baseline bucket can be skipped only
+for `MARKET_CLOSED`/`SESSION_INACTIVE`, unusable public data, or
+`NO_LIQUID_IDENTIFIABLE_INSTRUMENT`. `ALUMINIUM` and `EMISS` must remain
+explicit `NO_CONFIGURED_PUBLIC_REFERENCE` gaps until configured. A refresh
+must label every non-core bucket `NOT_IN_REFRESH_SCOPE` and disclose whether a
+baseline was reused; it must not imply a new full scan. Never reduce this to
+“đã quét thị trường” or cite missing broker/XTB values as a coverage reason.

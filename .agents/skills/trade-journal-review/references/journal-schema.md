@@ -2,7 +2,7 @@
 
 ```yaml
 journal_event:
-  schema_version: "2.2"
+  schema_version: "2.3"
   journal_event_id: null
   event_type: SESSION_STATE | SCAN_REFRESH | CANDIDATE_PROMOTED | ACQUISITION | DECISION | RISK_PLAN | MANUAL_TICKET_CHECK | NO_TRADE | WAIT_FOR_DATA | USER_SKIPPED | USER_ENTERED | USER_UPDATED_POSITION | USER_EXITED | USER_OUTCOME_REPORTED | BASIS_INCIDENT | REVIEW | CORRECTION
   occurred_at_source: null
@@ -37,6 +37,61 @@ journal_event:
   plan_deviations: []
   journal_status: SCAN_RECORDED | CANDIDATE_PROMOTED | AWAITING_USER_REPORT | USER_SKIPPED | POSITION_OPEN_REPORTED | POSITION_CLOSED_REPORTED | REVIEWED
 ```
+
+Schema 2.3 is additive. Existing append-only 2.2 events remain valid and must
+not be rewritten, reordered, or backfilled merely to add a scan audit.
+
+## Compact Immutable Scan-Audit Payload
+
+For a `SCAN_REFRESH` or material `ACQUISITION` event created from an
+open-ended scan, store this compact immutable projection of the canonical
+acquisition `coverage_audit` in `payload.scan_coverage_audit`:
+
+```yaml
+scan_coverage_audit:
+  acquisition_schema_version: "2.4"
+  audit_version: "1.0"
+  acquisition_id: null
+  scan_mode: BROAD_BASELINE | ACTIVE_SESSION_REFRESH | SINGLE_INSTRUMENT | CUSTOM_SYMBOLS
+  generated_at_vn: null
+  session:
+    session_id: null
+    window: null
+    assessed_at_vn: null
+  baseline_reuse:
+    reuse_status: NEW_BASELINE | REUSED | NOT_REUSED | NOT_APPLICABLE
+    baseline_acquisition_id: null
+    baseline_age_seconds: null
+    reused_fields: []
+    refreshed_fields: []
+    disclosure: null
+  totals:
+    attempted_instrument_count: 0
+    succeeded_instrument_count: 0
+    failed_instrument_count: 0
+    covered_bucket_count: 0
+    partial_bucket_count: 0
+    gap_bucket_count: 0
+    skipped_bucket_count: 0
+    not_scanned_bucket_count: 0
+  bucket_rows:
+    - bucket_id: null
+      coverage_outcome: COVERED | PARTIAL | GAP | SKIPPED | NOT_SCANNED
+      representative_instruments: []
+      session_state: OPEN | PREOPEN | AFTER_HOURS | CLOSED | HALTED | HOLIDAY | UNKNOWN | MIXED | NOT_SCANNED
+      reason_codes: []
+      plain_reason: null
+  material_unpromoted_or_rejected:
+    - instrument_key: null
+      promotion_state: NOT_PROMOTED | REJECTED | NOT_SCANNED
+      reason_codes: []
+      plain_reason: null
+```
+
+Copy values without reinterpretation. The journal projection is compact but
+must preserve every required bucket outcome and all material unpromoted,
+rejected, skipped, or gap reasons. It never stores XTB/broker/account values as
+coverage evidence, and those values cannot become a scan-skip reason.
 
 ## Frozen Plan Payload
 
@@ -118,3 +173,6 @@ user_reported_outcome:
 - Suppress duplicate blocker events when session, instrument, missing fields,
   and source state are unchanged.
 - Do not infer directional-edge failure from one stopped trade.
+- For an open-ended scan, keep `payload.scan_coverage_audit` immutable and
+  append a new event for a material refresh rather than rewriting its baseline
+  audit. Old 2.2 events remain valid without this field.

@@ -13,6 +13,11 @@ user alone reads XTB, supplies real-time fields, and decides whether and how to
 place it. Never open or control XTB, call a broker, claim a fill, imply
 guaranteed profit, or produce a crypto trade.
 
+For this user's market advisories, default the user-facing response language to
+Vietnamese unless the user requests another language. Keep the actionable plan
+or `NO_TRADE` outcome first; open-ended scan coverage follows that outcome and
+may not be replaced by a bare claim that the market was scanned.
+
 Read [references/workflow-contract.md](references/workflow-contract.md) before starting.
 When a platform screenshot or ticket description is available, also read
 [references/platform-ticket-profile.md](references/platform-ticket-profile.md).
@@ -96,7 +101,19 @@ For the first open-ended scan of a session, call `$market-data-acquisition`
 with `BROAD_BASELINE`. For subsequent scans in the same session, call
 `ACTIVE_SESSION_REFRESH` and deep-scan the liquid session core, prior promoted
 candidates, and new catalysts. Do not repeat a deep scan of every bucket when a
-recent baseline remains usable.
+recent baseline remains usable. Require the canonical acquisition
+`coverage_audit` for both modes. A baseline must enumerate FX, equity indices,
+rates/sovereign bonds, volatility, precious metals, industrial/base metals,
+energy, agriculture/softs, livestock, emissions/environmental,
+fertilizer/chemicals, and liquid stocks; it may skip a bucket only for a
+closed/inactive session, unusable public data, or no liquid identifiable
+instrument, with a stable reason code and plain explanation.
+
+For `ACTIVE_SESSION_REFRESH`, present the reused baseline acquisition ID and
+age plus the exact fields refreshed. Retain every non-core bucket in the audit
+as `NOT_IN_REFRESH_SCOPE`; never present a session-core refresh as a new full
+scan. Missing XTB symbol, quote, spread, account, or point-value fields must
+remain platform-translation limitations only, never a coverage skip.
 
 Rank candidates by readiness, identifiable basis, liquidity, completed trigger,
 extension, fresh catalyst, event risk, and attainable reward/risk. Promote at
@@ -271,6 +288,35 @@ After that concise block, show:
 
 State: `Manual execution only - verify the current price, spread, instrument, and order details on your platform before acting.`
 
+### 7.5 Present breadth coverage audit
+
+For every open-ended `BROAD_BASELINE` or `ACTIVE_SESSION_REFRESH`, present the
+directional/actionable or `NO_TRADE` block first. Immediately after it, render
+the acquisition's canonical `coverage_audit` in Vietnamese under these exact
+headings (unless the user requested another language):
+
+```text
+ĐÃ KHẢO SÁT
+SKIP/LOẠI VÀ LÝ DO
+```
+
+`ĐÃ KHẢO SÁT` must name scan mode, `session_id`/session window, ICT observation
+time, attempted/succeeded/failed totals, every required baseline bucket,
+representative instruments, normalized provider/session state, status
+source/time evidence, and `COVERED`/`PARTIAL`/`GAP`/`SKIPPED`/`NOT_SCANNED`
+coverage outcome. It must explicitly disclose the baseline acquisition ID and
+age when a refresh reused one, followed by the exact reused and refreshed
+fields. If no baseline was reused, say that directly.
+
+`SKIP/LOẠI VÀ LÝ DO` must enumerate every skipped/gap bucket and every material
+`NOT_PROMOTED` or `REJECTED` candidate with its stable reason code(s) and a
+plain explanation. Keep `ALUMINIUM` and `EMISS` visible as
+`NO_CONFIGURED_PUBLIC_REFERENCE` until an approved public reference exists.
+For a session-core refresh, list non-core buckets as
+`NOT_IN_REFRESH_SCOPE`, not as unobserved coverage. Never say only “đã quét thị
+trường”, and never use absent broker/XTB/account inputs as a market-skip
+reason.
+
 ### 8. Journal and Await User Report
 
 Call `$trade-journal-review` for a material acquisition baseline, candidate
@@ -316,6 +362,9 @@ Return either:
 - `KẾ HOẠCH CHỦ ĐỘNG` followed by the public-reference plan and one compact
   `REQUEST_USER_REALTIME` request.
 
-Then return `MANUAL_ADVISORY`, session ID, setup readiness, workflow status,
+Then, for an open-ended scan, append `ĐÃ KHẢO SÁT` and
+`SKIP/LOẠI VÀ LÝ DO` from the immutable canonical `coverage_audit`. Return
+`MANUAL_ADVISORY`, session ID, setup readiness, workflow status,
 acquisition/decision/risk IDs, data-delay warning, manual verification fields,
-and journal reference.
+coverage-audit reference, and journal reference. Do not move the audit ahead
+of the actionable or `NO_TRADE` outcome.
