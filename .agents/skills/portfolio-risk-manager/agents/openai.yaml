@@ -1,4 +1,0 @@
-interface:
-  display_name: "Manual Trade Risk Planner"
-  short_description: "Build risk geometry before optional sizing"
-  default_prompt: "Use $portfolio-risk-manager to calculate bounded risk geometry; for HYBRID_M5 require explicit spread and costs, apply spread-to-stop and total-cost-R gates plus the research risk cap, and size only from current user-supplied XTB/account values."

@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-SKILLS_ROOT = REPOSITORY_ROOT / ".agents" / "skills"
+SKILLS_ROOT = REPOSITORY_ROOT / "skills"
 ACQUISITION_SCHEMA = (
     SKILLS_ROOT
     / "market-data-acquisition"
@@ -22,7 +22,7 @@ SCANNER = (
     / "scan_public_markets.mjs"
 )
 MARKET_ACQUISITION_SKILL = SKILLS_ROOT / "market-data-acquisition" / "SKILL.md"
-LUNA_SKILL = SKILLS_ROOT / "luna" / "SKILL.md"
+CORE = REPOSITORY_ROOT / "core.md"
 ORCHESTRATOR_SKILL = SKILLS_ROOT / "trade-orchestrator" / "SKILL.md"
 WORKFLOW_CONTRACT = (
     SKILLS_ROOT
@@ -100,8 +100,8 @@ class MarketScanCoverageContractTest(unittest.TestCase):
             path.read_text(encoding="utf-8")
             for path in (
                 REPOSITORY_ROOT / "AGENTS.md",
+                CORE,
                 MARKET_ACQUISITION_SKILL,
-                LUNA_SKILL,
                 ORCHESTRATOR_SKILL,
                 WORKFLOW_CONTRACT,
                 JOURNAL_SKILL,
@@ -118,7 +118,7 @@ class MarketScanCoverageContractTest(unittest.TestCase):
             "baseline acquisition ID",
         ):
             self.assertIn(required_text, contents)
-        self.assertIn("coverage_audit: {}", LUNA_SKILL.read_text(encoding="utf-8"))
+        self.assertIn("coverage_audit: {}", MARKET_ACQUISITION_SKILL.read_text(encoding="utf-8"))
         self.assertIn(
             "payload.scan_coverage_audit",
             JOURNAL_SKILL.read_text(encoding="utf-8"),

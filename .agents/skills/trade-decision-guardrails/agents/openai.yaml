@@ -1,4 +1,0 @@
-interface:
-  display_name: "Trade Decision Guardrails"
-  short_description: "Promote valid ready-now directional plans"
-  default_prompt: "Use $trade-decision-guardrails to promote a valid public-data setup; for HYBRID_M5 require aligned H1/M15 direction and a completed current M5 trigger, never access XTB, and use NEEDS_USER_REALTIME when the trigger or quote must come from the user."

@@ -1,6 +1,0 @@
-interface:
-  display_name: "User-Supplied Account Snapshot"
-  short_description: "Parse XTB values supplied by the user"
-  default_prompt: "Use $broker-account-snapshot only to parse XTB/account text, screenshots, or exports supplied by the user into a reusable session snapshot; for HYBRID_M5 capture visible quote time and the latest completed M5 bar, and never connect to or control XTB."
-policy:
-  allow_implicit_invocation: false

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Luna"
-  short_description: "Acquire and normalize public market data"
-  default_prompt: "Use $luna to collect permitted public market data, normalize it to the acquisition contract, cite sources and timestamps, and return a reproducible package without making the trade decision."
