@@ -76,3 +76,10 @@ python -m unittest discover -s tests -v
 The repository tracks reusable skill source files only. Runtime artifacts such
 as temporary PDFs/images, Python caches, and local trade journal history are
 intentionally ignored.
+
+## Related
+
+Same owner, different job. Do not mix loaders or time horizons.
+
+- Long-term accumulation (Grok Bot / Cursor): https://github.com/recca5p/quality-at-a-discount
+- Discover both under GitHub topic `skills` on `recca5p`.
