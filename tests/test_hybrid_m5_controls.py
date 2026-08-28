@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-SKILLS_ROOT = REPOSITORY_ROOT / ".agents" / "skills"
+SKILLS_ROOT = REPOSITORY_ROOT / "skills"
 CALCULATOR = (
     SKILLS_ROOT
     / "portfolio-risk-manager"

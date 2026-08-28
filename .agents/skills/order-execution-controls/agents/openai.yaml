@@ -1,6 +1,0 @@
-interface:
-  display_name: "Manual Trade Card Check"
-  short_description: "Validate a user-translated manual ticket"
-  default_prompt: "Use $order-execution-controls only after a READY_NOW plan has current XTB values supplied by the user; for HYBRID_M5 require a fresh quote, completed M5 trigger, aligned H1/M15 context, explicit costs, and research risk gates."
-policy:
-  allow_implicit_invocation: false

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Terra"
-  short_description: "Implement and integrate complex changes"
-  default_prompt: "Use $terra to implement and integrate a multi-file change, investigate root causes, run verification, and use a native executor fallback when needed."

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Manual Trade Orchestrator"
-  short_description: "Proactively promote the best ready-now setup"
-  default_prompt: "Use $trade-orchestrator in M15 or HYBRID_M5 mode; keep H1/M15 direction separate from the completed M5 trigger, promote only a current valid setup, ask once for needed user-provided XTB values, and never access XTB."

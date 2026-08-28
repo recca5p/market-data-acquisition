@@ -1,0 +1,9 @@
+---
+description: Manual non-crypto trading advisory — load the skill router, not every skill.
+globs:
+alwaysApply: false
+---
+
+When the user asks to scan the market, whether there is a trade (“có lệnh không”), for a LONG/SHORT plan, Hybrid M5, ticket check, risk size, or journal review, follow the skill at `SKILL.md` in this repo.
+
+Read **only** the files that router names after you detect MODE. The running agent is the decision maker; do not spawn named subagents. Do not log in to XTB. Do not mix this session-trading pack with the sibling 1–2y accumulation playbook.
